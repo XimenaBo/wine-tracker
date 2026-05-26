@@ -1,14 +1,14 @@
 # 🍷 Wine Tracker
 
-Personal wine tasting tracker for Swiss open cellar days.
+Personal wine tasting tracker for Swiss Caves Ouvertes.
 
 ## Live app
-**https://YOUR-USERNAME.github.io/wine-tracker**
+**https://XimenaBo.github.io/wine-tracker**
 _(replace YOUR-USERNAME with your GitHub username after deploying)_
 
 ## Features
 - Log tastings on your phone, works offline
-- Pre-loaded Swiss wineries (Valais, Vaud, Bern, Neuchatel)
+- Some pre-loaded Swiss wineries (Valais, Vaud, Bern, Neuchatel)
 - Tap-to-select tags for grapes, aromas, taste & food pairings
 - Star ratings, vintage comparison, stats & charts
 - Google Drive sync (saves `wine_tastings.json` to your Drive)
