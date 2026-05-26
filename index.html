@@ -408,25 +408,27 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   <p class="section-head">Google Drive sync</p>
 
   <div class="drive-section">
-    <h3>Connection</h3>
-    <div class="drive-status drive-off" id="drive-status">Not connected — enter your credentials below</div>
-    <label>Client ID <span style="font-weight:400;font-size:11px;color:var(--text3)">(from Google Cloud Console)</span></label>
-    <input type="text" id="gapi-client-id" placeholder="xxxx.apps.googleusercontent.com">
-    <label style="margin-top:10px">API Key</label>
-    <input type="text" id="gapi-api-key" placeholder="AIza…">
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button class="btn-sm" onclick="driveConnect()" style="flex:1">Connect to Google Drive</button>
-      <button class="btn-sm" onclick="driveDisconnect()">Disconnect</button>
-    </div>
-    <p style="font-size:11px;color:var(--text3);margin-top:8px">Credentials are saved in your browser only — never sent anywhere else.</p>
+    <h3>Setup — one time only</h3>
+    <ol style="font-size:13px;color:var(--text2);line-height:2.2;padding-left:18px;margin-bottom:12px">
+      <li>Go to <strong>console.cloud.google.com</strong></li>
+      <li>Create a project → enable <strong>Google Drive API</strong></li>
+      <li>Credentials → <strong>+ Create Credentials → OAuth client ID</strong></li>
+      <li>Type: <strong>Web application</strong></li>
+      <li>Authorised JavaScript origins: add<br><code id="origin-hint">https://YOUR-USERNAME.github.io</code></li>
+      <li>Copy the <strong>Client ID</strong> and paste below</li>
+    </ol>
+    <label>OAuth Client ID</label>
+    <input type="text" id="gapi-client-id" placeholder="xxxx.apps.googleusercontent.com" oninput="localStorage.setItem('gapi_client_id', this.value)">
+    <p style="font-size:11px;color:var(--text3);margin-top:6px">Saved in your browser only — never sent anywhere else.</p>
   </div>
 
   <div class="drive-section">
     <h3>Sync</h3>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Saves <code>wine_tastings.json</code> and <code>wine_tastings.csv</code> to your Drive's root folder (or a folder named "Wine Tracker" if it exists).</p>
+    <div class="drive-status drive-off" id="drive-status">Not signed in</div>
+    <p style="font-size:13px;color:var(--text2);margin:10px 0">Saves <code>wine_tastings.json</code> to your Google Drive. Sign in when prompted.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn-sm" onclick="driveSave()" style="flex:1">☁ Save to Drive</button>
-      <button class="btn-sm" onclick="driveLoad()" style="flex:1">↓ Load from Drive</button>
+      <button class="btn-sm" onclick="uiDriveSave()" style="flex:1">☁ Save to Drive</button>
+      <button class="btn-sm" onclick="uiDriveLoad()" style="flex:1">↓ Load from Drive</button>
     </div>
     <p id="drive-last-sync" style="font-size:12px;color:var(--text3);margin-top:8px"></p>
   </div>
@@ -436,22 +438,8 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-sm" onclick="exportJSON()" style="flex:1">↓ Download JSON</button>
       <button class="btn-sm" onclick="exportCSV()" style="flex:1">↓ Download CSV</button>
-      <button class="btn-sm danger" onclick="clearAllData()">⚠ Clear all data</button>
+      <button class="btn-sm danger" onclick="clearAllData()">⚠ Clear all</button>
     </div>
-  </div>
-
-  <div class="drive-section" style="background:var(--bg3)">
-    <h3>Setup guide</h3>
-    <ol style="font-size:13px;color:var(--text2);line-height:2;padding-left:18px">
-      <li>Go to <strong>console.cloud.google.com</strong></li>
-      <li>Create a project (e.g. "Wine Tracker")</li>
-      <li>Enable the <strong>Google Drive API</strong> and <strong>Google Picker API</strong></li>
-      <li>Create an <strong>API Key</strong> — restrict to Drive + Picker APIs</li>
-      <li>Create an <strong>OAuth 2.0 Client ID</strong> — type: Web application</li>
-      <li>Add your GitHub Pages URL to <em>Authorised JavaScript origins</em><br>
-          e.g. <code>https://yourusername.github.io</code></li>
-      <li>Paste the Client ID and API Key above and click Connect</li>
-    </ol>
   </div>
 </div>
 
@@ -727,117 +715,61 @@ function clearAllData(){
   toast('All data cleared'); renderDriveStatus();
 }
 
-// ─── GOOGLE DRIVE ────────────────────────────────────────────────────────────
-const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-const DRIVE_FILE_NAME = 'wine_tastings.json';
-let tokenClient = null;
-
-function saveDriveCreds(){
-  const cid=v('gapi-client-id').trim(), key=v('gapi-api-key').trim();
-  if(cid) localStorage.setItem('gapi_client_id', cid);
-  if(key) localStorage.setItem('gapi_api_key', key);
-}
-function loadDriveCreds(){
-  const cid=localStorage.getItem('gapi_client_id')||'';
-  const key=localStorage.getItem('gapi_api_key')||'';
-  if(cid) document.getElementById('gapi-client-id').value=cid;
-  if(key) document.getElementById('gapi-api-key').value=key;
-  return {cid, key};
+// ─── GOOGLE DRIVE (simple OAuth popup, no service account) ──────────────────
+function renderDriveStatus(msg, type) {
+  const el = document.getElementById('drive-status');
+  if (!el) return;
+  el.className = 'drive-status ' + (type||'drive-off');
+  el.textContent = msg || 'Not signed in';
+  const last = localStorage.getItem('drive_last_sync');
+  const ls = document.getElementById('drive-last-sync');
+  if (ls) ls.textContent = last ? 'Last sync: ' + last : '';
 }
 
-function renderDriveStatus(){
-  loadDriveCreds();
-  const el=document.getElementById('drive-status');
-  if(driveReady){
-    el.className='drive-status drive-ok'; el.textContent='✓ Connected to Google Drive';
-  } else {
-    el.className='drive-status drive-off'; el.textContent='Not connected';
-  }
-  const last=localStorage.getItem('drive_last_sync');
-  document.getElementById('drive-last-sync').textContent=last?'Last sync: '+last:'';
+function renderDriveTab() {
+  const cid = localStorage.getItem('gapi_client_id') || '';
+  const el = document.getElementById('gapi-client-id');
+  if (el && cid) el.value = cid;
+  // show current origin as hint
+  const hint = document.getElementById('origin-hint');
+  if (hint) hint.textContent = window.location.origin;
+  renderDriveStatus();
 }
 
-function driveConnect(){
-  saveDriveCreds();
-  const {cid, key}=loadDriveCreds();
-  if(!cid||!key){ toast('Please enter both Client ID and API Key'); return; }
-
-  const gapiScript=document.createElement('script');
-  gapiScript.src='https://apis.google.com/js/api.js';
-  gapiScript.onload=()=>{
-    gapi.load('client', async ()=>{
-      await gapi.client.init({ apiKey: key, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'] });
-      const gisScript=document.createElement('script');
-      gisScript.src='https://accounts.google.com/gsi/client';
-      gisScript.onload=()=>{
-        tokenClient=google.accounts.oauth2.initTokenClient({
-          client_id: cid, scope: SCOPES,
-          callback: (resp)=>{
-            if(resp.error){ driveError(resp.error); return; }
-            driveReady=true; renderDriveStatus(); toast('Connected to Google Drive ☁');
-          }
-        });
-        tokenClient.requestAccessToken({prompt:'consent'});
-      };
-      document.head.appendChild(gisScript);
-    });
-  };
-  document.head.appendChild(gapiScript);
+async function uiDriveSave() {
+  renderDriveStatus('Signing in…', 'drive-off');
+  driveSignIn(async () => {
+    try {
+      renderDriveStatus('Saving…', 'drive-off');
+      await driveSaveFile(toJSON());
+      const ts = new Date().toLocaleString('fr-CH');
+      localStorage.setItem('drive_last_sync', ts);
+      renderDriveStatus('✓ Saved to Drive — ' + ts, 'drive-ok');
+      toast('Saved to Drive ☁');
+    } catch(e) { renderDriveStatus('Error: ' + e.message, 'drive-err'); toast('Drive error: ' + e.message, 4000); }
+  }, (err) => { renderDriveStatus('Error: ' + err, 'drive-err'); toast('Drive error: ' + err, 4000); });
 }
 
-function driveDisconnect(){
-  driveReady=false; driveFileId=null;
-  if(typeof google!=='undefined') google.accounts.oauth2.revoke(gapi.client.getToken()?.access_token||'', ()=>{});
-  renderDriveStatus(); toast('Disconnected from Drive');
-}
-
-function driveError(msg){ toast('Drive error: '+msg, 4000); document.getElementById('drive-status').className='drive-status drive-err'; document.getElementById('drive-status').textContent='Error: '+msg; }
-
-async function findOrCreateFile(){
-  const list=await gapi.client.drive.files.list({ q:`name='${DRIVE_FILE_NAME}' and trashed=false`, fields:'files(id,name)', spaces:'drive' });
-  if(list.result.files&&list.result.files.length){ return list.result.files[0].id; }
-  return null;
-}
-
-async function driveSave(){
-  if(!driveReady){ toast('Connect to Drive first'); return; }
-  toast('Saving to Drive…');
-  try{
-    const jsonContent=toJSON();
-    let fileId=driveFileId||await findOrCreateFile();
-    if(fileId){
-      await gapi.client.request({ path:`/upload/drive/v3/files/${fileId}`, method:'PATCH', params:{uploadType:'media'}, body:jsonContent });
-    } else {
-      const res=await gapi.client.request({ path:'/upload/drive/v3/files', method:'POST', params:{uploadType:'multipart'}, headers:{'Content-Type':'multipart/related; boundary=boundary'},
-        body:`--boundary\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({name:DRIVE_FILE_NAME,mimeType:'application/json'})}\r\n--boundary\r\nContent-Type: application/json\r\n\r\n${jsonContent}\r\n--boundary--` });
-      fileId=res.result.id;
-    }
-    driveFileId=fileId;
-    const ts=new Date().toLocaleString('fr-CH');
-    localStorage.setItem('drive_last_sync', ts);
-    renderDriveStatus(); toast('Saved to Drive ☁ '+ts);
-  }catch(e){ driveError(e.message||String(e)); }
-}
-
-async function driveLoad(){
-  if(!driveReady){ toast('Connect to Drive first'); return; }
-  try{
-    const fileId=driveFileId||await findOrCreateFile();
-    if(!fileId){ toast('No wine_tastings.json found in Drive'); return; }
-    driveFileId=fileId;
-    const res=await gapi.client.drive.files.get({ fileId, alt:'media' });
-    const data=JSON.parse(res.body);
-    if(!Array.isArray(data)) throw new Error('Invalid format');
-    const merged=[...tastings]; let added=0;
-    data.forEach(entry=>{ if(!merged.find(t=>t.id===entry.id)){merged.push(entry);added++;} });
-    tastings=merged.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
-    saveLocal(); buildWineryDropdown();
-    const ts=new Date().toLocaleString('fr-CH');
-    localStorage.setItem('drive_last_sync', ts);
-    renderDriveStatus(); toast(added+' new entries loaded from Drive');
-  }catch(e){ driveError(e.message||String(e)); }
+async function uiDriveLoad() {
+  renderDriveStatus('Signing in…', 'drive-off');
+  driveSignIn(async () => {
+    try {
+      renderDriveStatus('Loading…', 'drive-off');
+      const data = await driveLoadFile();
+      if (!data) { renderDriveStatus('No file found on Drive', 'drive-off'); toast('No wine_tastings.json found on Drive'); return; }
+      const merged = [...tastings]; let added = 0;
+      data.forEach(entry => { if (!merged.find(t => t.id === entry.id)) { merged.push(entry); added++; } });
+      tastings = merged.sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
+      saveLocal(); buildWineryDropdown();
+      const ts = new Date().toLocaleString('fr-CH');
+      localStorage.setItem('drive_last_sync', ts);
+      renderDriveStatus('✓ Loaded from Drive — ' + ts, 'drive-ok');
+      toast(added + ' new entries loaded from Drive');
+    } catch(e) { renderDriveStatus('Error: ' + e.message, 'drive-err'); toast('Drive error: ' + e.message, 4000); }
+  }, (err) => { renderDriveStatus('Error: ' + err, 'drive-err'); toast('Drive error: ' + err, 4000); });
 }
 </script>
+
 <script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
 </body>
 </html>
