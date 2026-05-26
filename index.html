@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="description" content="Personal wine tasting tracker — Swiss open cellar days">
+<title>Wine Tracker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#c0392b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Wine Tracker">
+<style>
+:root{
+  --red:#c0392b;--red-dark:#a93226;--red-light:#fdecea;--red-text:#a93226;
+  --bg:#ffffff;--bg2:#f7f5f3;--bg3:#f0ece8;
+  --text:#1a1a1a;--text2:#666;--text3:#999;
+  --border:#e0dbd5;--border2:#ccc;
+  --radius:10px;--radius-sm:6px;--radius-pill:99px;
+  --shadow:0 1px 3px rgba(0,0,0,.08);
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1c1a18;--bg2:#252220;--bg3:#2e2b28;
+    --text:#f0ece8;--text2:#a09890;--text3:#706860;
+    --border:#3a3530;--border2:#4a4540;
+    --red-light:#3a1a18;--red-text:#e88;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--text);font-size:15px}
+body{display:flex;flex-direction:column;max-width:680px;margin:0 auto}
+
+/* NAV */
+.nav{display:flex;gap:3px;padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.nav-btn{flex:1;padding:8px 4px;border:none;background:transparent;border-radius:var(--radius-sm);font-size:12px;font-weight:500;cursor:pointer;color:var(--text2);transition:all .15s;font-family:var(--font)}
+.nav-btn.active{background:var(--red);color:#fff}
+
+/* MAIN */
+main{flex:1;overflow-y:auto;padding:16px 12px 80px}
+.section{display:none}.section.active{display:block}
+.section-head{font-size:17px;font-weight:600;margin-bottom:12px}
+
+/* FORM */
+label{display:block;font-size:12px;color:var(--text2);margin:12px 0 4px;font-weight:500;text-transform:uppercase;letter-spacing:.4px}
+input[type=text],input[type=number],input[type=date],select,textarea{
+  width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);
+  font-size:15px;font-family:var(--font);background:var(--bg);color:var(--text);
+  outline:none;transition:border .15s;appearance:none;-webkit-appearance:none}
+input:focus,select:focus,textarea:focus{border-color:var(--red)}
+textarea{resize:vertical;min-height:64px;line-height:1.5}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+/* STARS */
+.stars{display:flex;gap:8px;margin-top:6px}
+.star{font-size:28px;cursor:pointer;color:var(--border2);transition:color .1s;user-select:none;line-height:1}
+.star.on{color:var(--red)}
+
+/* TAGS */
+.tag-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.tag{padding:6px 12px;border-radius:var(--radius-pill);font-size:13px;border:1px solid var(--border2);cursor:pointer;color:var(--text2);background:var(--bg2);transition:all .12s;user-select:none}
+.tag.sel{background:var(--red);border-color:var(--red);color:#fff}
+.add-tag-row{display:flex;gap:6px;margin-top:8px}
+.add-tag-row input{flex:1}
+.add-tag-btn{padding:9px 14px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;cursor:pointer;color:var(--text2);white-space:nowrap;font-family:var(--font)}
+
+/* BUTTONS */
+.btn-primary{width:100%;margin-top:20px;padding:14px;background:var(--red);color:#fff;border:none;border-radius:var(--radius);font-size:16px;font-weight:600;cursor:pointer;font-family:var(--font);letter-spacing:.2px}
+.btn-primary:active{background:var(--red-dark)}
+.btn-sm{padding:7px 12px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;cursor:pointer;color:var(--text);font-family:var(--font)}
+.btn-sm:hover{background:var(--bg2)}
+.btn-sm.danger{border-color:#e74c3c;color:#e74c3c}
+
+/* DIVIDER */
+.divider{height:1px;background:var(--border);margin:16px 0}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px}
+.wine-name{font-size:15px;font-weight:600}
+.wine-meta{font-size:12px;color:var(--text2);margin-top:2px}
+.badge{display:inline-block;padding:2px 8px;border-radius:var(--radius-pill);font-size:11px;font-weight:600;background:var(--red-light);color:var(--red-text);margin-left:6px}
+.badge-grey{background:var(--bg3);color:var(--text2)}
+.mini-stars{color:var(--red);font-size:12px;letter-spacing:1px}
+.note-text{font-size:13px;color:var(--text2);font-style:italic;margin-top:5px;line-height:1.4}
+.visit-text{font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4}
+.pill-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.pill{padding:2px 8px;border-radius:var(--radius-pill);font-size:11px;background:var(--bg3);color:var(--text2)}
+
+/* FILTERS */
+.filter-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;overflow-x:auto;padding-bottom:2px}
+.filter-btn{padding:5px 12px;border-radius:var(--radius-pill);font-size:12px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;white-space:nowrap;font-family:var(--font)}
+.filter-btn.active{background:var(--red);border-color:var(--red);color:#fff}
+.search-wrap{position:relative;margin-bottom:10px}
+.search-wrap input{padding-left:34px}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:16px;pointer-events:none}
+
+/* COMPARE */
+.compare-group{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden}
+.compare-hdr{padding:10px 14px;background:var(--bg2);cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)}
+.compare-hdr h3{font-size:14px;font-weight:600}
+.compare-hdr span{font-size:12px;color:var(--text2)}
+.compare-body{padding:10px 14px;display:none}
+.compare-body.open{display:block}
+.vtable{width:100%;font-size:12px;border-collapse:collapse}
+.vtable th{text-align:left;color:var(--text3);padding:3px 4px;font-weight:500;border-bottom:1px solid var(--border)}
+.vtable td{padding:5px 4px;border-bottom:1px solid var(--border);vertical-align:top}
+.vtable tr:last-child td{border-bottom:none}
+
+/* STATS */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center}
+.stat-num{font-size:26px;font-weight:700;color:var(--red)}
+.stat-lbl{font-size:12px;color:var(--text2);margin-top:3px}
+.chart-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px}
+.chart-title{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.bar-lbl{font-size:12px;color:var(--text2);width:130px;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-bg{flex:1;height:14px;background:var(--bg3);border-radius:var(--radius-pill);overflow:hidden}
+.bar-fill{height:100%;background:var(--red);border-radius:var(--radius-pill)}
+.bar-val{font-size:12px;color:var(--text2);width:22px;text-align:right;flex-shrink:0}
+
+/* DRIVE */
+.drive-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px}
+.drive-section h3{font-size:14px;font-weight:600;margin-bottom:8px}
+.drive-status{font-size:13px;padding:8px 10px;border-radius:var(--radius-sm);margin-bottom:10px}
+.drive-ok{background:#eafaf1;color:#1e8449}
+.drive-off{background:var(--bg3);color:var(--text2)}
+.drive-err{background:#fdecea;color:#c0392b}
+@media(prefers-color-scheme:dark){
+  .drive-ok{background:#1a3a2a;color:#6dbb8a}
+  .drive-err{background:#3a1a18;color:#e88}
+}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 20px;border-radius:var(--radius);font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1}
+
+/* EMPTY */
+.empty{text-align:center;color:var(--text2);font-size:14px;padding:3rem 0;line-height:1.8}
+</style>
+</head>
+<body>
+
+<nav class="nav" role="navigation" aria-label="Main navigation">
+  <button class="nav-btn active" onclick="showTab('log',this)" aria-label="Log tasting">＋ Log</button>
+  <button class="nav-btn" onclick="showTab('history',this)" aria-label="My tastings">☰ Tastings</button>
+  <button class="nav-btn" onclick="showTab('compare',this)" aria-label="Compare vintages">⇄ Compare</button>
+  <button class="nav-btn" onclick="showTab('stats',this)" aria-label="Statistics">▦ Stats</button>
+  <button class="nav-btn" onclick="showTab('drive',this)" aria-label="Google Drive sync">☁ Drive</button>
+</nav>
+
+<main>
+
+<!-- ═══ LOG ═══ -->
+<div id="tab-log" class="section active">
+  <p class="section-head">New tasting</p>
+
+  <div class="row2">
+    <div>
+      <label>Region</label>
+      <select id="f-region" onchange="updateCities()">
+        <option value="">—</option>
+        <option>Valais</option><option>Vaud</option><option>Bern</option>
+        <option>Neuchatel</option><option>Geneva</option><option>Other</option>
+      </select>
+    </div>
+    <div>
+      <label>City / village</label>
+      <input type="text" id="f-city" placeholder="e.g. Leytron">
+    </div>
+  </div>
+
+  <label>Winery / producer</label>
+  <select id="f-winery-sel" onchange="if(this.value)document.getElementById('f-winery-custom').value=''">
+    <option value="">— choose a winery —</option>
+  </select>
+  <input type="text" id="f-winery-custom" placeholder="Or type a new winery…" style="margin-top:8px" oninput="if(this.value)document.getElementById('f-winery-sel').value=''">
+
+  <div class="row2">
+    <div>
+      <label>Wine name / cuvée</label>
+      <input type="text" id="f-name" placeholder="e.g. Petite Arvine">
+    </div>
+    <div>
+      <label>Vintage</label>
+      <input type="number" id="f-year" placeholder="2023" min="1970" max="2035">
+    </div>
+  </div>
+
+  <div class="row3">
+    <div>
+      <label>Type</label>
+      <select id="f-colour">
+        <option>White</option><option>Red</option><option>Rosé</option>
+        <option>Sparkling</option><option>Orange</option><option>Sweet</option>
+        <option>Eaux-de-vie</option>
+      </select>
+    </div>
+    <div>
+      <label>AOC</label>
+      <select id="f-aoc">
+        <option value="">—</option>
+        <option>Dézaley</option><option>Calamin</option><option>La Côte</option>
+        <option>Lavaux</option><option>Chablais</option><option>Genève</option>
+        <option>Valais</option><option>Fendant</option><option>Dôle</option><option>Other</option>
+      </select>
+    </div>
+    <div>
+      <label>Price (CHF)</label>
+      <input type="number" id="f-price" placeholder="18" min="0" step="0.5">
+    </div>
+  </div>
+
+  <label>Grape / style</label>
+  <div class="tag-group" id="grapes">
+    <span class="tag" onclick="toggleTag(this)">Chasselas</span>
+    <span class="tag" onclick="toggleTag(this)">Pinot Noir</span>
+    <span class="tag" onclick="toggleTag(this)">Gamay</span>
+    <span class="tag" onclick="toggleTag(this)">Petite Arvine</span>
+    <span class="tag" onclick="toggleTag(this)">Humagne Rouge</span>
+    <span class="tag" onclick="toggleTag(this)">Humagne Blanche</span>
+    <span class="tag" onclick="toggleTag(this)">Cornalin</span>
+    <span class="tag" onclick="toggleTag(this)">Syrah</span>
+    <span class="tag" onclick="toggleTag(this)">Gamaret</span>
+    <span class="tag" onclick="toggleTag(this)">Divico</span>
+    <span class="tag" onclick="toggleTag(this)">Merlot</span>
+    <span class="tag" onclick="toggleTag(this)">Chardonnay</span>
+    <span class="tag" onclick="toggleTag(this)">Viognier</span>
+    <span class="tag" onclick="toggleTag(this)">Païen / Heida</span>
+    <span class="tag" onclick="toggleTag(this)">Fendant</span>
+    <span class="tag" onclick="toggleTag(this)">Amigne</span>
+    <span class="tag" onclick="toggleTag(this)">Johannisberg</span>
+    <span class="tag" onclick="toggleTag(this)">Cabernet Franc</span>
+    <span class="tag" onclick="toggleTag(this)">Diolinoir</span>
+    <span class="tag" onclick="toggleTag(this)">Blend</span>
+  </div>
+  <div class="add-tag-row">
+    <input type="text" id="new-grape" placeholder="Add a variety…">
+    <button class="add-tag-btn" onclick="addTag('grapes','new-grape')">+ Add</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <label>Aroma / nose</label>
+  <div class="tag-group" id="aromas">
+    <span class="tag" onclick="toggleTag(this)">Floral</span>
+    <span class="tag" onclick="toggleTag(this)">Citrus</span>
+    <span class="tag" onclick="toggleTag(this)">Stone fruit</span>
+    <span class="tag" onclick="toggleTag(this)">Apricot</span>
+    <span class="tag" onclick="toggleTag(this)">Pineapple</span>
+    <span class="tag" onclick="toggleTag(this)">Pear</span>
+    <span class="tag" onclick="toggleTag(this)">Red berries</span>
+    <span class="tag" onclick="toggleTag(this)">Dark berries</span>
+    <span class="tag" onclick="toggleTag(this)">Cassis</span>
+    <span class="tag" onclick="toggleTag(this)">Mineral</span>
+    <span class="tag" onclick="toggleTag(this)">Earthy</span>
+    <span class="tag" onclick="toggleTag(this)">Oak / vanilla</span>
+    <span class="tag" onclick="toggleTag(this)">Toffee</span>
+    <span class="tag" onclick="toggleTag(this)">Honey</span>
+    <span class="tag" onclick="toggleTag(this)">Herbal</span>
+    <span class="tag" onclick="toggleTag(this)">Spice</span>
+    <span class="tag" onclick="toggleTag(this)">Smoke</span>
+    <span class="tag" onclick="toggleTag(this)">Pepper</span>
+    <span class="tag" onclick="toggleTag(this)">Tobacco</span>
+    <span class="tag" onclick="toggleTag(this)">Yeasty / bread</span>
+  </div>
+  <div class="add-tag-row">
+    <input type="text" id="new-aroma" placeholder="Add an aroma…">
+    <button class="add-tag-btn" onclick="addTag('aromas','new-aroma')">+ Add</button>
+  </div>
+
+  <label>Taste & finish</label>
+  <div class="tag-group" id="taste">
+    <span class="tag" onclick="toggleTag(this)">Crisp / fresh</span>
+    <span class="tag" onclick="toggleTag(this)">Creamy</span>
+    <span class="tag" onclick="toggleTag(this)">Dry</span>
+    <span class="tag" onclick="toggleTag(this)">Off-dry</span>
+    <span class="tag" onclick="toggleTag(this)">Full-bodied</span>
+    <span class="tag" onclick="toggleTag(this)">Light-bodied</span>
+    <span class="tag" onclick="toggleTag(this)">Tannic</span>
+    <span class="tag" onclick="toggleTag(this)">Silky</span>
+    <span class="tag" onclick="toggleTag(this)">Long finish</span>
+    <span class="tag" onclick="toggleTag(this)">Short finish</span>
+    <span class="tag" onclick="toggleTag(this)">Acidic</span>
+    <span class="tag" onclick="toggleTag(this)">Astringent</span>
+    <span class="tag" onclick="toggleTag(this)">Balanced</span>
+    <span class="tag" onclick="toggleTag(this)">Needs decanting</span>
+    <span class="tag" onclick="toggleTag(this)">Try in 2+ years</span>
+  </div>
+  <div class="add-tag-row">
+    <input type="text" id="new-taste" placeholder="Add a descriptor…">
+    <button class="add-tag-btn" onclick="addTag('taste','new-taste')">+ Add</button>
+  </div>
+
+  <label>Food pairing</label>
+  <div class="tag-group" id="food">
+    <span class="tag" onclick="toggleTag(this)">Fish / seafood</span>
+    <span class="tag" onclick="toggleTag(this)">Cheese</span>
+    <span class="tag" onclick="toggleTag(this)">Raclette</span>
+    <span class="tag" onclick="toggleTag(this)">Fondue</span>
+    <span class="tag" onclick="toggleTag(this)">Charcuterie</span>
+    <span class="tag" onclick="toggleTag(this)">White meat</span>
+    <span class="tag" onclick="toggleTag(this)">Red meat</span>
+    <span class="tag" onclick="toggleTag(this)">Game / chasse</span>
+    <span class="tag" onclick="toggleTag(this)">BBQ</span>
+    <span class="tag" onclick="toggleTag(this)">Aperitif</span>
+    <span class="tag" onclick="toggleTag(this)">Dessert</span>
+  </div>
+  <div class="add-tag-row">
+    <input type="text" id="new-food" placeholder="Add a pairing…">
+    <button class="add-tag-btn" onclick="addTag('food','new-food')">+ Add</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <label>Rating</label>
+  <div class="stars" id="stars" role="group" aria-label="Rating out of 5">
+    <span class="star" onclick="setStars(1)" role="button" aria-label="1 star">★</span>
+    <span class="star" onclick="setStars(2)" role="button" aria-label="2 stars">★</span>
+    <span class="star" onclick="setStars(3)" role="button" aria-label="3 stars">★</span>
+    <span class="star" onclick="setStars(4)" role="button" aria-label="4 stars">★</span>
+    <span class="star" onclick="setStars(5)" role="button" aria-label="5 stars">★</span>
+  </div>
+
+  <div class="row2">
+    <div>
+      <label>Event / occasion</label>
+      <input type="text" id="f-event" placeholder="e.g. Open cellar Leytron">
+    </div>
+    <div>
+      <label>Date</label>
+      <input type="date" id="f-date">
+    </div>
+  </div>
+  <div class="row2">
+    <div>
+      <label>Bottles bought</label>
+      <input type="number" id="f-bought" placeholder="0" min="0" step="1">
+    </div>
+    <div>
+      <label>Would buy again?</label>
+      <select id="f-buy">
+        <option value="">—</option>
+        <option value="yes">Yes, definitely</option>
+        <option value="maybe">Maybe</option>
+        <option value="no">No</option>
+      </select>
+    </div>
+  </div>
+
+  <label>Tasting notes</label>
+  <textarea id="f-notes" placeholder="Flavours, impressions…"></textarea>
+
+  <label>Cellar / visit notes</label>
+  <textarea id="f-other" placeholder="Notes about the winery, people, visit…" style="min-height:50px"></textarea>
+
+  <button class="btn-primary" onclick="saveEntry()">Save tasting</button>
+</div>
+
+<!-- ═══ HISTORY ═══ -->
+<div id="tab-history" class="section">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <p class="section-head" style="margin:0">Tastings <span id="history-count" style="font-size:13px;font-weight:400;color:var(--text2)"></span></p>
+    <div style="display:flex;gap:6px">
+      <button class="btn-sm" onclick="exportCSV()" title="Export CSV">↓ CSV</button>
+      <button class="btn-sm" onclick="document.getElementById('import-file').click()" title="Import JSON">↑ JSON</button>
+    </div>
+  </div>
+  <input type="file" id="import-file" accept=".json" onchange="importJSON(event)" style="display:none">
+  <div class="search-wrap">
+    <span class="search-icon">⌕</span>
+    <input type="text" id="search-box" placeholder="Search winery, wine, notes…" oninput="renderHistory()">
+  </div>
+  <div class="filter-row" id="colour-filters">
+    <button class="filter-btn active" onclick="filterCol('all',this)">All</button>
+    <button class="filter-btn" onclick="filterCol('White',this)">White</button>
+    <button class="filter-btn" onclick="filterCol('Red',this)">Red</button>
+    <button class="filter-btn" onclick="filterCol('Rosé',this)">Rosé</button>
+    <button class="filter-btn" onclick="filterCol('Sparkling',this)">Sparkling</button>
+    <button class="filter-btn" onclick="filterCol('Orange',this)">Orange</button>
+    <button class="filter-btn" onclick="filterCol('Eaux-de-vie',this)">Eaux-de-vie</button>
+    <button class="filter-btn" onclick="filterCol('Sweet',this)">Sweet</button>
+  </div>
+  <div id="history-list"></div>
+</div>
+
+<!-- ═══ COMPARE ═══ -->
+<div id="tab-compare" class="section">
+  <p class="section-head">Vintage comparison</p>
+  <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Same wine tasted across multiple years. Tap to expand.</p>
+  <div id="compare-list"></div>
+</div>
+
+<!-- ═══ STATS ═══ -->
+<div id="tab-stats" class="section">
+  <p class="section-head">Stats</p>
+  <div class="stat-grid" id="stat-grid"></div>
+  <div class="chart-wrap"><p class="chart-title">By type</p><div id="chart-colour"></div></div>
+  <div class="chart-wrap"><p class="chart-title">By region</p><div id="chart-region"></div></div>
+  <div class="chart-wrap"><p class="chart-title">Top wineries</p><div id="chart-wineries"></div></div>
+  <div class="chart-wrap"><p class="chart-title">Top grapes</p><div id="chart-grapes"></div></div>
+</div>
+
+<!-- ═══ DRIVE ═══ -->
+<div id="tab-drive" class="section">
+  <p class="section-head">Google Drive sync</p>
+
+  <div class="drive-section">
+    <h3>Connection</h3>
+    <div class="drive-status drive-off" id="drive-status">Not connected — enter your credentials below</div>
+    <label>Client ID <span style="font-weight:400;font-size:11px;color:var(--text3)">(from Google Cloud Console)</span></label>
+    <input type="text" id="gapi-client-id" placeholder="xxxx.apps.googleusercontent.com">
+    <label style="margin-top:10px">API Key</label>
+    <input type="text" id="gapi-api-key" placeholder="AIza…">
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn-sm" onclick="driveConnect()" style="flex:1">Connect to Google Drive</button>
+      <button class="btn-sm" onclick="driveDisconnect()">Disconnect</button>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-top:8px">Credentials are saved in your browser only — never sent anywhere else.</p>
+  </div>
+
+  <div class="drive-section">
+    <h3>Sync</h3>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Saves <code>wine_tastings.json</code> and <code>wine_tastings.csv</code> to your Drive's root folder (or a folder named "Wine Tracker" if it exists).</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-sm" onclick="driveSave()" style="flex:1">☁ Save to Drive</button>
+      <button class="btn-sm" onclick="driveLoad()" style="flex:1">↓ Load from Drive</button>
+    </div>
+    <p id="drive-last-sync" style="font-size:12px;color:var(--text3);margin-top:8px"></p>
+  </div>
+
+  <div class="drive-section">
+    <h3>Local backup</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-sm" onclick="exportJSON()" style="flex:1">↓ Download JSON</button>
+      <button class="btn-sm" onclick="exportCSV()" style="flex:1">↓ Download CSV</button>
+      <button class="btn-sm danger" onclick="clearAllData()">⚠ Clear all data</button>
+    </div>
+  </div>
+
+  <div class="drive-section" style="background:var(--bg3)">
+    <h3>Setup guide</h3>
+    <ol style="font-size:13px;color:var(--text2);line-height:2;padding-left:18px">
+      <li>Go to <strong>console.cloud.google.com</strong></li>
+      <li>Create a project (e.g. "Wine Tracker")</li>
+      <li>Enable the <strong>Google Drive API</strong> and <strong>Google Picker API</strong></li>
+      <li>Create an <strong>API Key</strong> — restrict to Drive + Picker APIs</li>
+      <li>Create an <strong>OAuth 2.0 Client ID</strong> — type: Web application</li>
+      <li>Add your GitHub Pages URL to <em>Authorised JavaScript origins</em><br>
+          e.g. <code>https://yourusername.github.io</code></li>
+      <li>Paste the Client ID and API Key above and click Connect</li>
+    </ol>
+  </div>
+</div>
+
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const STORE = 'wine_tastings_v3';
+let tastings = [];
+let stars = 0;
+let colFilter = 'all';
+let driveReady = false;
+let driveFileId = null;
+
+function loadLocal(){
+  try{ tastings = JSON.parse(localStorage.getItem(STORE)||'[]'); }catch(e){ tastings=[]; }
+}
+function saveLocal(){ localStorage.setItem(STORE, JSON.stringify(tastings)); }
+loadLocal();
+
+// ─── UI HELPERS ──────────────────────────────────────────────────────────────
+function toast(msg, dur=2500){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'), dur);
+}
+
+function showTab(t, btn){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  (btn||document.querySelectorAll('.nav-btn')[['log','history','compare','stats','drive'].indexOf(t)]).classList.add('active');
+  if(t==='history') renderHistory();
+  if(t==='compare') renderCompare();
+  if(t==='stats') renderStats();
+  if(t==='drive') renderDriveStatus();
+}
+
+function toggleTag(el){ el.classList.toggle('sel'); }
+function addTag(gid, iid){
+  const input=document.getElementById(iid), val=input.value.trim(); if(!val) return;
+  const t=document.createElement('span'); t.className='tag sel';
+  t.textContent=val; t.onclick=()=>toggleTag(t);
+  document.getElementById(gid).appendChild(t); input.value='';
+}
+function setStars(n){
+  stars=n; document.querySelectorAll('.star').forEach((s,i)=>s.classList.toggle('on',i<n));
+}
+function getTags(id){ return [...document.querySelectorAll('#'+id+' .tag.sel')].map(t=>t.textContent); }
+function v(id){ return document.getElementById(id).value; }
+function sv(id, val){ document.getElementById(id).value = val||''; }
+
+function buildWineryDropdown(){
+  const sel=document.getElementById('f-winery-sel');
+  const known=['Cave Le Bosset','Cave de la Madeleine','Defayes & Crettenand','Cave Gilbert Devayes',
+    'Cave David Rossier','Cave Lips','Cave du Vieux-Moulin','Cave La Tine - Fontannaz',
+    'Domaine Aguet','Caveau Duboux','Cave Hug','Domaine de Vy Granges','Tschanzweine',
+    'Domaine Christalain','Cave distillerie de la Ruelle','Domaine de Montmollin'];
+  const fromData=[...new Set(tastings.map(t=>t.winery).filter(Boolean))];
+  const all=[...new Set([...known,...fromData])].sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML='<option value="">— choose a winery —</option>'+all.map(w=>`<option value="${w}">${w}</option>`).join('');
+}
+buildWineryDropdown();
+
+function updateCities(){
+  const m={'Valais':['Leytron','Vétroz-Conthey','Conthey','Fully','Ardon','Sion'],
+    'Vaud':['Féchy','Lavigny','Lavaux-Grandvaux','Mont-sur-Rolle','Concise'],
+    'Bern':['Twann','Ligerz'],'Neuchatel':['Boudry','Auvernier','Milvignes'],
+    'Geneva':['Satigny','Dardagny']};
+  const cities=m[v('f-region')]||[];
+  document.getElementById('f-city').placeholder=cities.join(', ')||'e.g. Leytron';
+}
+
+document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+
+// ─── SAVE ENTRY ──────────────────────────────────────────────────────────────
+function saveEntry(){
+  const winery=document.getElementById('f-winery-custom').value.trim()||v('f-winery-sel')||'';
+  const name=v('f-name').trim();
+  if(!winery||!name){ toast('Please fill in winery and wine name'); return; }
+  const entry={
+    id:Date.now(), winery, name,
+    year:v('f-year'), aoc:v('f-aoc'), colour:v('f-colour'),
+    region:v('f-region'), city:v('f-city').trim(),
+    price:v('f-price'),
+    grapes:getTags('grapes'), aromas:getTags('aromas'),
+    taste:getTags('taste'), food:getTags('food'),
+    rating:stars,
+    event:v('f-event').trim(),
+    date:v('f-date')||new Date().toISOString().slice(0,10),
+    notes:v('f-notes').trim(),
+    other_notes:v('f-other').trim(),
+    buy:v('f-buy'),
+    bottles_bought:v('f-bought')
+  };
+  tastings.unshift(entry); saveLocal(); buildWineryDropdown();
+  // reset
+  document.querySelectorAll('.tag.sel').forEach(t=>t.classList.remove('sel'));
+  ['f-winery-sel','f-winery-custom','f-name','f-year','f-price','f-event','f-notes','f-other','f-region','f-city','f-aoc','f-bought','f-buy'].forEach(id=>sv(id));
+  sv('f-colour','White');
+  document.getElementById('f-date').value=new Date().toISOString().slice(0,10);
+  stars=0; setStars(0);
+  toast('Tasting saved 🍷');
+}
+
+// ─── HISTORY ─────────────────────────────────────────────────────────────────
+function filterCol(c, btn){
+  colFilter=c;
+  document.querySelectorAll('#colour-filters .filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); renderHistory();
+}
+function starsStr(n){ return '★'.repeat(n||0)+'☆'.repeat(5-(n||0)); }
+
+function matchSearch(t,q){
+  if(!q) return true;
+  const s=q.toLowerCase();
+  return [t.winery,t.name,t.notes,t.other_notes,t.region,t.city,t.event,
+    ...(t.grapes||[])].some(v=>v&&String(v).toLowerCase().includes(s));
+}
+
+function renderHistory(){
+  const list=document.getElementById('history-list');
+  const q=document.getElementById('search-box').value.trim();
+  let f=tastings.filter(t=>matchSearch(t,q));
+  if(colFilter!=='all') f=f.filter(t=>t.colour===colFilter);
+  document.getElementById('history-count').textContent=`(${f.length}/${tastings.length})`;
+  if(!f.length){ list.innerHTML='<p class="empty">No tastings found.</p>'; return; }
+  list.innerHTML=f.slice(0,60).map(t=>`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="flex:1;min-width:0">
+          <span class="wine-name">${t.name}</span><span class="badge">${t.colour}</span>
+          ${t.region?`<span class="badge badge-grey">${t.region}</span>`:''}
+          <div class="wine-meta">${t.winery}${t.year?' · '+t.year:''}${t.city?' · '+t.city:''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div class="mini-stars">${starsStr(t.rating)}</div>
+          <div style="font-size:11px;color:var(--text3)">${t.date||''}</div>
+        </div>
+      </div>
+      ${t.grapes&&t.grapes.length?`<div class="pill-row">${t.grapes.map(g=>`<span class="pill">${g}</span>`).join('')}</div>`:''}
+      ${t.notes?`<div class="note-text">"${t.notes}"</div>`:''}
+      ${t.other_notes?`<div class="visit-text">🏡 ${t.other_notes}</div>`:''}
+      ${t.food&&t.food.length?`<div style="font-size:11px;color:var(--text3);margin-top:4px">Pairs: ${t.food.join(', ')}</div>`:''}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+        <span style="font-size:12px;color:${t.buy==='yes'?'#27ae60':t.buy==='no'?'#c0392b':'var(--text3)'}">
+          ${t.buy==='yes'?'✓ Would buy again':t.buy==='no'?'✗ Would not buy':t.buy==='maybe'?'~ Maybe':''}</span>
+        <button class="btn-sm danger" style="padding:4px 8px;font-size:11px" onclick="delEntry(${t.id})">Delete</button>
+      </div>
+    </div>`).join('')+(f.length>60?`<p style="text-align:center;font-size:12px;color:var(--text2);padding:1rem">Showing 60 — use search to narrow.</p>`:'');
+}
+
+function delEntry(id){
+  if(!confirm('Delete this tasting?')) return;
+  tastings=tastings.filter(t=>t.id!==id); saveLocal(); renderHistory();
+}
+
+// ─── COMPARE ─────────────────────────────────────────────────────────────────
+function renderCompare(){
+  const list=document.getElementById('compare-list');
+  const groups={};
+  tastings.forEach(t=>{
+    const k=(t.winery||'')+'|||'+(t.name||'');
+    (groups[k]=groups[k]||[]).push(t);
+  });
+  const multi=Object.entries(groups).filter(([,v])=>v.length>1).sort((a,b)=>b[1].length-a[1].length);
+  if(!tastings.length){ list.innerHTML='<p class="empty">No tastings yet.</p>'; return; }
+  if(!multi.length){ list.innerHTML='<p class="empty">Log the same wine more than once to compare vintages.</p>'; return; }
+  list.innerHTML=multi.map(([key,entries],i)=>{
+    const sorted=[...entries].sort((a,b)=>(b.year||0)-(a.year||0));
+    const name=key.split('|||')[1], winery=sorted[0].winery;
+    const best=sorted.reduce((a,b)=>(b.rating||0)>(a.rating||0)?b:a);
+    return`<div class="compare-group">
+      <div class="compare-hdr" onclick="toggleCompare(${i})">
+        <h3>${name} <span style="font-weight:400;color:var(--text2)">· ${winery}</span></h3>
+        <span>${sorted.length} tastings · best ${best.year||'?'} ${'★'.repeat(best.rating||0)}</span>
+      </div>
+      <div class="compare-body" id="cv-${i}">
+        <table class="vtable">
+          <tr><th>Year</th><th>Rating</th><th>Notes</th><th>Buy?</th></tr>
+          ${sorted.map(t=>`<tr>
+            <td><strong>${t.year||'—'}</strong></td>
+            <td style="color:var(--red)">${starsStr(t.rating)}</td>
+            <td style="color:var(--text2)">${t.notes||'—'}</td>
+            <td style="font-size:11px;white-space:nowrap">${t.buy==='yes'?'✓ Yes':t.buy==='no'?'✗ No':t.buy==='maybe'?'~ Maybe':'—'}</td>
+          </tr>`).join('')}
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+function toggleCompare(i){
+  const b=document.getElementById('cv-'+i);
+  b.classList.toggle('open');
+}
+
+// ─── STATS ───────────────────────────────────────────────────────────────────
+function renderStats(){
+  const n=tastings.length;
+  const avg=n?(tastings.reduce((s,t)=>s+(t.rating||0),0)/n).toFixed(1):'—';
+  const nw=[...new Set(tastings.map(t=>t.winery))].length;
+  const nr=[...new Set(tastings.map(t=>t.region).filter(Boolean))].length;
+  document.getElementById('stat-grid').innerHTML=`
+    <div class="stat-card"><div class="stat-num">${n}</div><div class="stat-lbl">Tastings</div></div>
+    <div class="stat-card"><div class="stat-num">${nw}</div><div class="stat-lbl">Wineries</div></div>
+    <div class="stat-card"><div class="stat-num">${nr}</div><div class="stat-lbl">Regions</div></div>
+    <div class="stat-card"><div class="stat-num">${avg}</div><div class="stat-lbl">Avg rating</div></div>`;
+  const cnt=(arr,key)=>{const m={};arr.forEach(t=>{const v=t[key]||'?';m[v]=(m[v]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]);};
+  barChart('chart-colour',cnt(tastings,'colour'));
+  barChart('chart-region',cnt(tastings,'region').slice(0,6));
+  barChart('chart-wineries',cnt(tastings,'winery').slice(0,8));
+  const gc={};tastings.forEach(t=>(t.grapes||[]).forEach(g=>{if(g)gc[g]=(gc[g]||0)+1;}));
+  barChart('chart-grapes',Object.entries(gc).sort((a,b)=>b[1]-a[1]).slice(0,10));
+}
+function barChart(id,data){
+  const c=document.getElementById(id);
+  if(!data.length){c.innerHTML='<p style="font-size:13px;color:var(--text2)">No data yet</p>';return;}
+  const max=Math.max(...data.map(d=>d[1]));
+  c.innerHTML=data.map(([l,v])=>`<div class="bar-row">
+    <span class="bar-lbl" title="${l}">${l}</span>
+    <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(v/max*100)}%"></div></div>
+    <span class="bar-val">${v}</span></div>`).join('');
+}
+
+// ─── EXPORT / IMPORT ─────────────────────────────────────────────────────────
+function toCSV(){
+  const cols=['date','region','city','winery','name','year','colour','aoc','price','grapes','aromas','taste','food','rating','event','notes','other_notes','buy','bottles_bought'];
+  const rows=tastings.map(t=>cols.map(c=>{
+    const val=Array.isArray(t[c])?t[c].join('; '):(t[c]||'');
+    return'"'+String(val).replace(/"/g,'""')+'"';
+  }).join(','));
+  return [cols.join(','),...rows].join('\n');
+}
+function toJSON(){ return JSON.stringify(tastings, null, 2); }
+
+function exportCSV(){
+  if(!tastings.length){toast('No tastings to export');return;}
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([toCSV()],{type:'text/csv'}));
+  a.download='wine_tastings_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); toast('CSV downloaded');
+}
+function exportJSON(){
+  if(!tastings.length){toast('No tastings to export');return;}
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([toJSON()],{type:'application/json'}));
+  a.download='wine_tastings_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click(); toast('JSON downloaded');
+}
+
+function importJSON(evt){
+  const file=evt.target.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(!Array.isArray(data)) throw new Error('Expected array');
+      const merged=[...tastings]; let added=0;
+      data.forEach(entry=>{ if(!merged.find(t=>t.id===entry.id)){merged.push(entry);added++;} });
+      tastings=merged.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
+      saveLocal(); buildWineryDropdown(); renderHistory();
+      toast(added+' entries imported 🍷');
+    }catch(err){ alert('Could not parse: '+err.message); }
+  };
+  r.readAsText(file); evt.target.value='';
+}
+
+function clearAllData(){
+  if(!confirm('Delete ALL tastings? This cannot be undone.')) return;
+  tastings=[]; saveLocal(); buildWineryDropdown();
+  toast('All data cleared'); renderDriveStatus();
+}
+
+// ─── GOOGLE DRIVE ────────────────────────────────────────────────────────────
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const DRIVE_FILE_NAME = 'wine_tastings.json';
+let tokenClient = null;
+
+function saveDriveCreds(){
+  const cid=v('gapi-client-id').trim(), key=v('gapi-api-key').trim();
+  if(cid) localStorage.setItem('gapi_client_id', cid);
+  if(key) localStorage.setItem('gapi_api_key', key);
+}
+function loadDriveCreds(){
+  const cid=localStorage.getItem('gapi_client_id')||'';
+  const key=localStorage.getItem('gapi_api_key')||'';
+  if(cid) document.getElementById('gapi-client-id').value=cid;
+  if(key) document.getElementById('gapi-api-key').value=key;
+  return {cid, key};
+}
+
+function renderDriveStatus(){
+  loadDriveCreds();
+  const el=document.getElementById('drive-status');
+  if(driveReady){
+    el.className='drive-status drive-ok'; el.textContent='✓ Connected to Google Drive';
+  } else {
+    el.className='drive-status drive-off'; el.textContent='Not connected';
+  }
+  const last=localStorage.getItem('drive_last_sync');
+  document.getElementById('drive-last-sync').textContent=last?'Last sync: '+last:'';
+}
+
+function driveConnect(){
+  saveDriveCreds();
+  const {cid, key}=loadDriveCreds();
+  if(!cid||!key){ toast('Please enter both Client ID and API Key'); return; }
+
+  const gapiScript=document.createElement('script');
+  gapiScript.src='https://apis.google.com/js/api.js';
+  gapiScript.onload=()=>{
+    gapi.load('client', async ()=>{
+      await gapi.client.init({ apiKey: key, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'] });
+      const gisScript=document.createElement('script');
+      gisScript.src='https://accounts.google.com/gsi/client';
+      gisScript.onload=()=>{
+        tokenClient=google.accounts.oauth2.initTokenClient({
+          client_id: cid, scope: SCOPES,
+          callback: (resp)=>{
+            if(resp.error){ driveError(resp.error); return; }
+            driveReady=true; renderDriveStatus(); toast('Connected to Google Drive ☁');
+          }
+        });
+        tokenClient.requestAccessToken({prompt:'consent'});
+      };
+      document.head.appendChild(gisScript);
+    });
+  };
+  document.head.appendChild(gapiScript);
+}
+
+function driveDisconnect(){
+  driveReady=false; driveFileId=null;
+  if(typeof google!=='undefined') google.accounts.oauth2.revoke(gapi.client.getToken()?.access_token||'', ()=>{});
+  renderDriveStatus(); toast('Disconnected from Drive');
+}
+
+function driveError(msg){ toast('Drive error: '+msg, 4000); document.getElementById('drive-status').className='drive-status drive-err'; document.getElementById('drive-status').textContent='Error: '+msg; }
+
+async function findOrCreateFile(){
+  const list=await gapi.client.drive.files.list({ q:`name='${DRIVE_FILE_NAME}' and trashed=false`, fields:'files(id,name)', spaces:'drive' });
+  if(list.result.files&&list.result.files.length){ return list.result.files[0].id; }
+  return null;
+}
+
+async function driveSave(){
+  if(!driveReady){ toast('Connect to Drive first'); return; }
+  toast('Saving to Drive…');
+  try{
+    const jsonContent=toJSON();
+    let fileId=driveFileId||await findOrCreateFile();
+    if(fileId){
+      await gapi.client.request({ path:`/upload/drive/v3/files/${fileId}`, method:'PATCH', params:{uploadType:'media'}, body:jsonContent });
+    } else {
+      const res=await gapi.client.request({ path:'/upload/drive/v3/files', method:'POST', params:{uploadType:'multipart'}, headers:{'Content-Type':'multipart/related; boundary=boundary'},
+        body:`--boundary\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({name:DRIVE_FILE_NAME,mimeType:'application/json'})}\r\n--boundary\r\nContent-Type: application/json\r\n\r\n${jsonContent}\r\n--boundary--` });
+      fileId=res.result.id;
+    }
+    driveFileId=fileId;
+    const ts=new Date().toLocaleString('fr-CH');
+    localStorage.setItem('drive_last_sync', ts);
+    renderDriveStatus(); toast('Saved to Drive ☁ '+ts);
+  }catch(e){ driveError(e.message||String(e)); }
+}
+
+async function driveLoad(){
+  if(!driveReady){ toast('Connect to Drive first'); return; }
+  try{
+    const fileId=driveFileId||await findOrCreateFile();
+    if(!fileId){ toast('No wine_tastings.json found in Drive'); return; }
+    driveFileId=fileId;
+    const res=await gapi.client.drive.files.get({ fileId, alt:'media' });
+    const data=JSON.parse(res.body);
+    if(!Array.isArray(data)) throw new Error('Invalid format');
+    const merged=[...tastings]; let added=0;
+    data.forEach(entry=>{ if(!merged.find(t=>t.id===entry.id)){merged.push(entry);added++;} });
+    tastings=merged.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
+    saveLocal(); buildWineryDropdown();
+    const ts=new Date().toLocaleString('fr-CH');
+    localStorage.setItem('drive_last_sync', ts);
+    renderDriveStatus(); toast(added+' new entries loaded from Drive');
+  }catch(e){ driveError(e.message||String(e)); }
+}
+</script>
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
+</body>
+</html>
