@@ -152,6 +152,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   <button class="nav-btn" onclick="showTab('history',this)" aria-label="My tastings">☰ Tastings</button>
   <button class="nav-btn" onclick="showTab('compare',this)" aria-label="Compare vintages">⇄ Compare</button>
   <button class="nav-btn" onclick="showTab('stats',this)" aria-label="Statistics">▦ Stats</button>
+  <button class="nav-btn" onclick="showTab('cellar',this)" aria-label="My cellar">⬡ Cellar</button>
   <button class="nav-btn" onclick="showTab('drive',this)" aria-label="Google Drive sync">☁ Drive</button>
 </nav>
 
@@ -410,6 +411,79 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   <div class="chart-wrap"><p class="chart-title">Top grapes</p><div id="chart-grapes"></div></div>
 </div>
 
+<!-- ═══ CELLAR ═══ -->
+<div id="tab-cellar" class="section">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <p class="section-head" style="margin:0">My Cellar <span id="cellar-count" style="font-size:13px;font-weight:400;color:var(--text2)"></span></p>
+    <button class="btn-sm" onclick="openAddCellar()" style="font-size:12px">+ Add wine</button>
+  </div>
+  <div style="margin-bottom:12px;display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap">
+    <span style="font-size:12px;color:var(--text2);font-weight:500;text-transform:uppercase;letter-spacing:.4px;padding-top:6px">Pairing:</span>
+    <div class="filter-row" id="cellar-pairing-filters" style="margin:0;padding:0;flex:1;min-width:0"></div>
+  </div>
+  <div id="cellar-list"></div>
+
+  <!-- Add/Edit modal -->
+  <div id="cellar-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;overflow-y:auto;-webkit-overflow-scrolling:touch">
+    <div style="background:var(--bg);max-width:520px;margin:2rem auto 4rem;border-radius:var(--radius);padding:1.25rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h3 id="cellar-modal-title" style="font-size:16px;font-weight:600">Add to cellar</h3>
+        <button onclick="closeCellarModal()" style="background:transparent;border:none;font-size:22px;cursor:pointer;color:var(--text2);line-height:1">✕</button>
+      </div>
+      <div class="row2">
+        <div><label>Wine name</label><input type="text" id="cm-name" placeholder="e.g. Petite Arvine"></div>
+        <div><label>Winery</label><input type="text" id="cm-winery" placeholder="e.g. Cave Le Bosset"></div>
+      </div>
+      <div class="row2">
+        <div><label>Vintage</label><input type="number" id="cm-year" placeholder="2022" min="1970" max="2035"></div>
+        <div><label>Type</label>
+          <select id="cm-colour">
+            <option>White</option><option>Red</option><option>Rosé</option>
+            <option>Sparkling</option><option>Orange</option><option>Sweet</option><option>Eaux-de-vie</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div><label>Bottles in cellar</label><input type="number" id="cm-bottles" placeholder="1" min="0" step="1"></div>
+        <div><label>Price paid (CHF)</label><input type="number" id="cm-price" placeholder="18" min="0" step="0.5"></div>
+      </div>
+      <label>Food pairings</label>
+      <div class="tag-group" id="cm-food-tags">
+        <span class="tag" onclick="toggleTag(this)">Fish / seafood</span>
+        <span class="tag" onclick="toggleTag(this)">Cheese</span>
+        <span class="tag" onclick="toggleTag(this)">Raclette</span>
+        <span class="tag" onclick="toggleTag(this)">Fondue</span>
+        <span class="tag" onclick="toggleTag(this)">Charcuterie</span>
+        <span class="tag" onclick="toggleTag(this)">White meat</span>
+        <span class="tag" onclick="toggleTag(this)">Red meat</span>
+        <span class="tag" onclick="toggleTag(this)">Game / chasse</span>
+        <span class="tag" onclick="toggleTag(this)">BBQ</span>
+        <span class="tag" onclick="toggleTag(this)">Aperitif</span>
+        <span class="tag" onclick="toggleTag(this)">Dessert</span>
+      </div>
+      <div class="add-tag-row">
+        <input type="text" id="cm-food-custom" placeholder="Add a pairing…">
+        <button class="add-tag-btn" onclick="addCellarTag()">+ Add</button>
+      </div>
+      <label>Notes</label>
+      <textarea id="cm-notes" placeholder="Any notes about this bottle…" style="min-height:50px"></textarea>
+      <input type="hidden" id="cm-id">
+      <button class="btn-primary" onclick="saveCellarEntry()">Save to cellar</button>
+    </div>
+  </div>
+
+  <!-- Pairing suggestions panel -->
+  <div id="pairing-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;overflow-y:auto;-webkit-overflow-scrolling:touch">
+    <div style="background:var(--bg);max-width:520px;margin:2rem auto 4rem;border-radius:var(--radius);padding:1.25rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h3 id="pairing-panel-title" style="font-size:15px;font-weight:600">Pairing suggestions</h3>
+        <button onclick="document.getElementById('pairing-panel').style.display='none'" style="background:transparent;border:none;font-size:22px;cursor:pointer;color:var(--text2);line-height:1">✕</button>
+      </div>
+      <div id="pairing-panel-content" style="font-size:14px;color:var(--text);line-height:1.7"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ DRIVE ═══ -->
 <div id="tab-drive" class="section">
   <p class="section-head">Google Drive sync</p>
@@ -459,6 +533,9 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 <script>
 // ─── STATE ───────────────────────────────────────────────────────────────────
 const STORE = 'wine_tastings_v3';
+const CELLAR_STORE = 'wine_cellar_v1';
+let cellar = [];
+let cellarPairingFilter = 'all';
 let tastings = [];
 let stars = 0;
 let colFilter = 'all';
@@ -467,8 +544,10 @@ let driveFileId = null;
 
 function loadLocal(){
   try{ tastings = JSON.parse(localStorage.getItem(STORE)||'[]'); }catch(e){ tastings=[]; }
+  try{ cellar = JSON.parse(localStorage.getItem(CELLAR_STORE)||'[]'); }catch(e){ cellar=[]; }
 }
 function saveLocal(){ localStorage.setItem(STORE, JSON.stringify(tastings)); }
+function saveCellar(){ localStorage.setItem(CELLAR_STORE, JSON.stringify(cellar)); }
 loadLocal();
 
 // ─── UI HELPERS ──────────────────────────────────────────────────────────────
@@ -487,6 +566,7 @@ function showTab(t, btn){
   if(t==='compare') renderCompare();
   if(t==='stats') renderStats();
   if(t==='drive') renderDriveStatus();
+  if(t==='cellar') renderCellar();
 }
 
 function toggleTag(el){ el.classList.toggle('sel'); }
@@ -679,6 +759,7 @@ function _doSaveEntry(winery, name){
     toast('Tasting saved 🍷');
   }
   saveLocal(); buildWineryDropdown(); setLastCity(entry.city); setLastWinery(entry.winery); setLastEvent(entry.event);
+  if (parseInt(entry.bottles_bought) > 0) autoAddToCellar(entry);
   // reset
   document.querySelectorAll('.tag.sel').forEach(t=>t.classList.remove('sel'));
   ['f-winery-custom','f-name','f-year','f-price','f-event','f-notes','f-other','f-region','f-city','f-aoc','f-bought','f-buy'].forEach(id=>sv(id));
@@ -820,7 +901,7 @@ function toCSV(){
   }).join(','));
   return [cols.join(','),...rows].join('\n');
 }
-function toJSON(){ return JSON.stringify(tastings, null, 2); }
+function toJSON(){ return JSON.stringify({tastings, cellar}, null, 2); }
 
 function exportCSV(){
   if(!tastings.length){toast('No tastings to export');return;}
@@ -843,12 +924,16 @@ function importJSON(evt){
   r.onload=e=>{
     try{
       const data=JSON.parse(e.target.result);
-      if(!Array.isArray(data)) throw new Error('Expected array');
+      const incomingTastings=Array.isArray(data)?data:(data.tastings||[]);
+      const incomingCellar=Array.isArray(data)?[]:(data.cellar||[]);
       const merged=[...tastings]; let added=0;
-      data.forEach(entry=>{ if(!merged.find(t=>t.id===entry.id)){merged.push(entry);added++;} });
+      incomingTastings.forEach(entry=>{ if(!merged.find(t=>t.id===entry.id)){merged.push(entry);added++;} });
       tastings=merged.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
-      saveLocal(); buildWineryDropdown(); setLastCity(entry.city); setLastWinery(entry.winery); setLastEvent(entry.event); renderHistory();
-      toast(added+' entries imported 🍷');
+      const mergedCellar=[...cellar]; let cellarAdded=0;
+      incomingCellar.forEach(entry=>{ if(!mergedCellar.find(c=>c.id===entry.id)){mergedCellar.push(entry);cellarAdded++;} });
+      cellar=mergedCellar;
+      saveLocal(); saveCellar(); buildWineryDropdown(); renderHistory();
+      toast(added+' tastings + '+cellarAdded+' cellar entries imported 🍷');
     }catch(err){ alert('Could not parse: '+err.message); }
   };
   r.readAsText(file); evt.target.value='';
@@ -1102,6 +1187,192 @@ function cancelEdit() {
   refreshGrapeTags();
 }
 
+// ─── MY CELLAR ───────────────────────────────────────────────────────────────
+
+function autoAddToCellar(entry) {
+  // Match on identity fields only — winery, name, year, colour
+  // Ratings, aromas, pairings and notes do NOT make a wine a different entry
+  const norm = s => (s||'').trim().toLowerCase();
+  const existing = cellar.find(c =>
+    norm(c.winery) === norm(entry.winery) &&
+    norm(c.name)   === norm(entry.name)   &&
+    norm(c.year)   === norm(entry.year)   &&
+    norm(c.colour) === norm(entry.colour)
+  );
+  if (existing) {
+    existing.bottles = (parseInt(existing.bottles)||0) + (parseInt(entry.bottles_bought)||0);
+    saveCellar();
+    toast('Cellar updated: ' + entry.name + ' now ' + existing.bottles + ' bottles');
+  } else {
+    cellar.unshift({ id:'c'+Date.now(), name:entry.name, winery:entry.winery, year:entry.year,
+      colour:entry.colour, price:entry.price, bottles:parseInt(entry.bottles_bought)||0,
+      food:entry.food||[], notes:entry.notes||'', grapes:entry.grapes||[],
+      added:entry.date||new Date().toISOString().slice(0,10) });
+    saveCellar();
+    toast('Added to cellar: ' + entry.name);
+  }
+}
+
+function openAddCellar(id) {
+  document.getElementById('cellar-modal-title').textContent = id ? 'Edit cellar entry' : 'Add to cellar';
+  ['cm-name','cm-winery','cm-year','cm-price','cm-notes','cm-id'].forEach(i => document.getElementById(i).value='');
+  document.getElementById('cm-bottles').value='1';
+  document.getElementById('cm-colour').value='White';
+  document.querySelectorAll('#cm-food-tags .tag').forEach(t=>t.classList.remove('sel'));
+  [...document.querySelectorAll('#cm-food-tags .tag[data-custom]')].forEach(t=>t.remove());
+  if (id) {
+    const c=cellar.find(x=>x.id===id); if(!c) return;
+    document.getElementById('cm-id').value=c.id;
+    document.getElementById('cm-name').value=c.name||'';
+    document.getElementById('cm-winery').value=c.winery||'';
+    document.getElementById('cm-year').value=c.year||'';
+    document.getElementById('cm-colour').value=c.colour||'White';
+    document.getElementById('cm-bottles').value=c.bottles||0;
+    document.getElementById('cm-price').value=c.price||'';
+    document.getElementById('cm-notes').value=c.notes||'';
+    const knownTags=[...document.querySelectorAll('#cm-food-tags .tag')].map(t=>t.textContent);
+    (c.food||[]).forEach(f=>{
+      const tag=document.querySelector(`#cm-food-tags .tag`);
+      const existing=[...document.querySelectorAll('#cm-food-tags .tag')].find(t=>t.textContent===f);
+      if(existing){existing.classList.add('sel');}
+      else{const t=document.createElement('span');t.className='tag sel';t.dataset.custom='1';t.textContent=f;t.onclick=()=>toggleTag(t);document.getElementById('cm-food-tags').appendChild(t);}
+    });
+  }
+  document.getElementById('cellar-modal').style.display='block';
+}
+
+function closeCellarModal(){ document.getElementById('cellar-modal').style.display='none'; }
+
+function addCellarTag(){
+  const inp=document.getElementById('cm-food-custom'), val=inp.value.trim(); if(!val) return;
+  const t=document.createElement('span'); t.className='tag sel'; t.dataset.custom='1';
+  t.textContent=val; t.onclick=()=>toggleTag(t);
+  document.getElementById('cm-food-tags').appendChild(t); inp.value='';
+}
+
+function saveCellarEntry(){
+  const name=document.getElementById('cm-name').value.trim();
+  if(!name){toast('Please enter a wine name');return;}
+  const id=document.getElementById('cm-id').value;
+  const food=[...document.querySelectorAll('#cm-food-tags .tag.sel')].map(t=>t.textContent);
+  const entry={id:id||('c'+Date.now()), name,
+    winery:document.getElementById('cm-winery').value.trim(),
+    year:document.getElementById('cm-year').value,
+    colour:document.getElementById('cm-colour').value,
+    bottles:parseInt(document.getElementById('cm-bottles').value)||0,
+    price:document.getElementById('cm-price').value,
+    food, notes:document.getElementById('cm-notes').value.trim(),
+    added:new Date().toISOString().slice(0,10)};
+  if(id){const idx=cellar.findIndex(c=>c.id===id);if(idx!==-1){entry.added=cellar[idx].added;cellar[idx]=entry;}}
+  else{cellar.unshift(entry);}
+  saveCellar(); closeCellarModal(); renderCellar(); toast('Cellar saved 🍷');
+}
+
+function updateBottles(id,delta){
+  const c=cellar.find(x=>x.id===id); if(!c) return;
+  c.bottles=Math.max(0,(parseInt(c.bottles)||0)+delta);
+  saveCellar(); renderCellar();
+}
+
+function deleteCellarEntry(id){
+  if(!confirm('Remove this wine from cellar?')) return;
+  cellar=cellar.filter(c=>c.id!==id); saveCellar(); renderCellar();
+}
+
+function setCellarPairingFilter(f,btn){
+  cellarPairingFilter=f;
+  document.querySelectorAll('#cellar-pairing-filters .filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); renderCellar();
+}
+
+function renderCellar(){
+  const allPairings=[...new Set(cellar.flatMap(c=>c.food||[]))].sort((a,b)=>a.localeCompare(b));
+  const filterBar=document.getElementById('cellar-pairing-filters');
+  filterBar.innerHTML=`<button class="filter-btn${cellarPairingFilter==='all'?' active':''}" onclick="setCellarPairingFilter('all',this)">All</button>`
+    +allPairings.map(p=>`<button class="filter-btn${cellarPairingFilter===p?' active':''}" onclick="setCellarPairingFilter('${p.replace(/'/g,"\'")}',this)">${p}</button>`).join('');
+  const filtered=cellarPairingFilter==='all'?cellar:cellar.filter(c=>(c.food||[]).includes(cellarPairingFilter));
+  const inStock=cellar.filter(c=>c.bottles>0).length;
+  const totalBottles=cellar.reduce((s,c)=>s+(parseInt(c.bottles)||0),0);
+  document.getElementById('cellar-count').textContent=`(${inStock} wines · ${totalBottles} bottles)`;
+  const list=document.getElementById('cellar-list');
+  if(!filtered.length){
+    list.innerHTML=cellar.length?'<p class="empty">No wines match this pairing.</p>':'<p class="empty">Your cellar is empty.<br>Wines with bottles bought are added automatically,<br>or tap + Add wine above.</p>';
+    return;
+  }
+  list.innerHTML=filtered.map(c=>`
+    <div class="card" style="${c.bottles===0?'opacity:.55':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="flex:1;min-width:0">
+          <span class="wine-name">${c.name}</span><span class="badge">${c.colour}</span>
+          <div class="wine-meta">${c.winery||''}${c.year?' · '+c.year:''}${c.price?' · CHF '+parseFloat(c.price).toFixed(0):''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+          <button onclick="updateBottles('${c.id}',-1)" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border2);background:var(--bg2);font-size:18px;line-height:1;cursor:pointer;color:var(--text)">−</button>
+          <span style="font-size:17px;font-weight:600;min-width:22px;text-align:center;color:${c.bottles===0?'var(--text3)':'var(--red)'}">${c.bottles}</span>
+          <button onclick="updateBottles('${c.id}',1)" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border2);background:var(--bg2);font-size:18px;line-height:1;cursor:pointer;color:var(--text)">+</button>
+        </div>
+      </div>
+      ${c.food&&c.food.length?`<div class="pill-row">${c.food.map(f=>`<span class="pill">${f}</span>`).join('')}</div>`:''}
+      ${c.notes?`<div class="note-text" style="margin-top:5px"><i class="ti ti-glass" style="font-size:13px;vertical-align:-1px;margin-right:3px" aria-hidden="true"></i>"${c.notes}"</div>`:''}
+      <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">
+        <button class="btn-sm" style="padding:4px 8px;font-size:11px" onclick="showPairings('${c.id}')">🍽 Pairings</button>
+        <button class="btn-sm" style="padding:4px 8px;font-size:11px" onclick="openAddCellar('${c.id}')">✏️ Edit</button>
+        <button class="btn-sm danger" style="padding:4px 8px;font-size:11px" onclick="deleteCellarEntry('${c.id}')">Delete</button>
+      </div>
+    </div>`).join('');
+}
+
+async function showPairings(id){
+  const c=cellar.find(x=>x.id===id); if(!c) return;
+  const panel=document.getElementById('pairing-panel');
+  document.getElementById('pairing-panel-title').textContent=c.name+(c.winery?' · '+c.winery:'');
+  const content=document.getElementById('pairing-panel-content');
+  content.innerHTML='<p style="color:var(--text2)">Loading…</p>';
+  panel.style.display='block';
+
+  let html='';
+  const myNotes=tastings.filter(t=>t.name===c.name&&t.winery===c.winery).sort((a,b)=>(b.year||0)-(a.year||0));
+  if(myNotes.length){
+    html+=`<p style="font-weight:500;font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">From my tastings</p>`;
+    myNotes.forEach(t=>{
+      if(t.food&&t.food.length) html+=`<div style="margin-bottom:6px"><span style="font-size:11px;color:var(--text3)">${t.year||'?'} · ${t.date||''}</span><div class="pill-row">${t.food.map(f=>`<span class="pill">${f}</span>`).join('')}</div></div>`;
+      if(t.notes) html+=`<div class="note-text" style="margin-bottom:6px"><i class="ti ti-glass" style="font-size:12px;margin-right:3px" aria-hidden="true"></i>"${t.notes}"</div>`;
+    });
+    html+='<div class="divider"></div>';
+  }
+  if(c.food&&c.food.length){
+    html+=`<p style="font-weight:500;font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Saved pairings</p>
+    <div class="pill-row" style="margin-bottom:12px">${c.food.map(f=>`<span class="pill">${f}</span>`).join('')}</div>
+    <div class="divider"></div>`;
+  }
+  const grapeInfo=c.grapes&&c.grapes.length?', made from '+c.grapes.slice(0,2).join(', '):'';
+  html+=`<p style="font-weight:500;font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">AI pairing suggestions</p>
+    <div id="ai-pairing-result">
+      <button class="btn-sm" onclick="fetchAIPairings('${c.id}')" style="width:100%;padding:10px;font-size:13px">
+        Get suggestions for ${c.colour} ${c.name}${grapeInfo}
+      </button>
+    </div>`;
+  content.innerHTML=html;
+}
+
+async function fetchAIPairings(id){
+  const c=cellar.find(x=>x.id===id); if(!c) return;
+  const el=document.getElementById('ai-pairing-result');
+  el.innerHTML='<p style="color:var(--text2);font-size:13px">Asking Claude…</p>';
+  const grapeInfo=c.grapes&&c.grapes.length?', made from '+c.grapes.join(', '):'';
+  const prompt=`Suggest 5 specific food pairings for a Swiss ${c.colour} wine called "${c.name}" from ${c.winery||'a Swiss winery'}${grapeInfo}. Be concise — one line per pairing with a brief reason. End with serving temperature.`;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,
+        messages:[{role:'user',content:prompt}]})});
+    const data=await res.json();
+    const text=data.content?.map(b=>b.text||'').join('')||'No response';
+    el.innerHTML=`<div style="line-height:1.7;font-size:13px;white-space:pre-wrap">${text}</div>
+      <p style="font-size:11px;color:var(--text3);margin-top:8px">AI-generated — use your own judgement.</p>`;
+  }catch(e){el.innerHTML='<p style="color:var(--text2);font-size:13px">Could not fetch suggestions.</p>';}
+}
+
 // ─── GOOGLE DRIVE (simple OAuth popup, no service account) ──────────────────
 function renderDriveStatus(msg, type) {
   const el = document.getElementById('drive-status');
@@ -1148,6 +1419,7 @@ async function uiDriveLoad() {
       data.forEach(entry => { if (!merged.find(t => t.id === entry.id)) { merged.push(entry); added++; } });
       tastings = merged.sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
       saveLocal(); buildWineryDropdown(); setLastCity(entry.city); setLastWinery(entry.winery); setLastEvent(entry.event);
+  if (parseInt(entry.bottles_bought) > 0) autoAddToCellar(entry);
       const ts = new Date().toLocaleString('fr-CH');
       localStorage.setItem('drive_last_sync', ts);
       renderDriveStatus('✓ Loaded from Drive — ' + ts, 'drive-ok');
