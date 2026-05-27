@@ -493,6 +493,7 @@ function toggleTag(el){ el.classList.toggle('sel'); }
 function addTag(gid, iid){
   const input=document.getElementById(iid), val=input.value.trim(); if(!val) return;
   const t=document.createElement('span'); t.className='tag sel';
+  t.dataset.custom='1';
   t.textContent=val; t.onclick=()=>toggleTag(t);
   document.getElementById(gid).appendChild(t); input.value='';
 }
@@ -906,8 +907,9 @@ function refreshGrapeTags() {
   const group = document.getElementById('grapes');
   const hint = document.getElementById('grape-label-hint');
 
-  // Collect currently selected tags so we can restore them
-  const selected = new Set([...group.querySelectorAll('.tag.sel')].map(t => t.textContent));
+  // Only preserve tags the user explicitly added via the + Add button (marked with data-custom)
+  const customTags = [...group.querySelectorAll('.tag[data-custom]')];
+  const customSelected = new Set(customTags.filter(t => t.classList.contains('sel')).map(t => t.textContent));
 
   // Determine which list to show
   let varieties = [];
@@ -916,11 +918,9 @@ function refreshGrapeTags() {
     varieties = db[colour];
     hintText = '· filtered for ' + colour.toLowerCase();
   } else if (db) {
-    // Type not in DB — show all unique varieties across all types
     varieties = [...new Set(Object.values(db).flat())].sort((a,b) => a.localeCompare(b));
     hintText = '';
   } else {
-    // Fallback if grapes.js not loaded
     varieties = ['Chasselas','Pinot Noir','Gamay','Petite Arvine','Humagne Rouge',
       'Humagne Blanche','Cornalin','Syrah','Gamaret','Divico','Merlot',
       'Chardonnay','Viognier','Heida / Païen','Amigne','Johannisberg',
@@ -929,14 +929,13 @@ function refreshGrapeTags() {
 
   if (hint) hint.textContent = hintText;
 
-  // Rebuild tag group, preserving selected state and any custom tags
-  const customTags = [...group.querySelectorAll('.tag')].filter(t => !varieties.includes(t.textContent));
+  // Rebuild with only the correct varieties for this type — no cross-type bleed
   group.innerHTML = varieties.map(v =>
-    `<span class="tag${selected.has(v) ? ' sel' : ''}" onclick="toggleTag(this)">${v}</span>`
+    `<span class="tag" onclick="toggleTag(this)">${v}</span>`
   ).join('');
-  // Re-add custom tags (user-added ones)
+  // Re-add user-added custom tags only
   customTags.forEach(t => {
-    t.classList.toggle('sel', selected.has(t.textContent));
+    t.classList.toggle('sel', customSelected.has(t.textContent));
     group.appendChild(t);
   });
 }
