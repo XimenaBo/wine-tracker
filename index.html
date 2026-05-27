@@ -139,6 +139,10 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 
 /* EMPTY */
 .empty{text-align:center;color:var(--text2);font-size:14px;padding:3rem 0;line-height:1.8}
+.city-sug{padding:10px 12px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--border)}
+.city-sug:last-child{border-bottom:none}
+.city-sug:hover,.city-sug.active{background:var(--red);color:#fff}
+.city-sug .sug-meta{font-size:11px;opacity:.7}
 </style>
 </head>
 <body>
@@ -157,6 +161,17 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 <div id="tab-log" class="section active">
   <p class="section-head">New tasting</p>
 
+  <label>Quick rating <span style="font-size:11px;font-weight:400;color:var(--text3)">— tap and go if that's all you have time for</span></label>
+  <div class="stars" id="stars" role="group" aria-label="Rating out of 5">
+    <span class="star" onclick="setStars(1)" role="button" aria-label="1 star">★</span>
+    <span class="star" onclick="setStars(2)" role="button" aria-label="2 stars">★</span>
+    <span class="star" onclick="setStars(3)" role="button" aria-label="3 stars">★</span>
+    <span class="star" onclick="setStars(4)" role="button" aria-label="4 stars">★</span>
+    <span class="star" onclick="setStars(5)" role="button" aria-label="5 stars">★</span>
+  </div>
+
+  <div class="divider"></div>
+
   <div class="row2">
     <div>
       <label>Region</label>
@@ -168,15 +183,26 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
     </div>
     <div>
       <label>City / village</label>
-      <input type="text" id="f-city" placeholder="e.g. Leytron">
+      <div style="position:relative">
+        <input type="text" id="f-city" placeholder="e.g. Leytron" autocomplete="off"
+          oninput="cityAutocomplete(this.value)"
+          onfocus="cityAutocomplete(this.value)"
+          onblur="setTimeout(()=>document.getElementById('city-suggestions').style.display='none',150)"
+          onkeydown="cityKey(event)">
+        <div id="city-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg);border:1px solid var(--border2);border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm);z-index:50;max-height:180px;overflow-y:auto;box-shadow:var(--shadow)"></div>
+      </div>
     </div>
   </div>
 
   <label>Winery / producer</label>
-  <select id="f-winery-sel" onchange="if(this.value)document.getElementById('f-winery-custom').value=''">
-    <option value="">— choose a winery —</option>
-  </select>
-  <input type="text" id="f-winery-custom" placeholder="Or type a new winery…" style="margin-top:8px" oninput="if(this.value)document.getElementById('f-winery-sel').value=''">
+  <div style="position:relative">
+    <input type="text" id="f-winery-custom" placeholder="Winery name…" autocomplete="off"
+      oninput="wineryAutocomplete(this.value)"
+      onfocus="wineryAutocomplete(this.value)"
+      onblur="setTimeout(()=>document.getElementById('winery-suggestions').style.display='none',150)"
+      onkeydown="wineryKey(event)">
+    <div id="winery-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg);border:1px solid var(--border2);border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm);z-index:50;max-height:220px;overflow-y:auto;box-shadow:var(--shadow)"></div>
+  </div>
 
   <div class="row2">
     <div>
@@ -311,17 +337,6 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   <div class="add-tag-row">
     <input type="text" id="new-food" placeholder="Add a pairing…">
     <button class="add-tag-btn" onclick="addTag('food','new-food')">+ Add</button>
-  </div>
-
-  <div class="divider"></div>
-
-  <label>Rating</label>
-  <div class="stars" id="stars" role="group" aria-label="Rating out of 5">
-    <span class="star" onclick="setStars(1)" role="button" aria-label="1 star">★</span>
-    <span class="star" onclick="setStars(2)" role="button" aria-label="2 stars">★</span>
-    <span class="star" onclick="setStars(3)" role="button" aria-label="3 stars">★</span>
-    <span class="star" onclick="setStars(4)" role="button" aria-label="4 stars">★</span>
-    <span class="star" onclick="setStars(5)" role="button" aria-label="5 stars">★</span>
   </div>
 
   <div class="row2">
@@ -498,19 +513,129 @@ function getTags(id){ return [...document.querySelectorAll('#'+id+' .tag.sel')].
 function v(id){ return document.getElementById(id).value; }
 function sv(id, val){ document.getElementById(id).value = val||''; }
 
-function buildWineryDropdown(){
-  const sel=document.getElementById('f-winery-sel');
-  const known=['Cave Le Bosset','Cave de la Madeleine','Defayes & Crettenand','Cave Gilbert Devayes',
-    'Cave David Rossier','Cave Lips','Cave du Vieux-Moulin','Cave La Tine - Fontannaz',
-    'Domaine Aguet','Caveau Duboux','Cave Hug','Domaine de Vy Granges','Tschanzweine',
-    'Domaine Christalain','Cave distillerie de la Ruelle','Domaine de Montmollin'];
-  const fromData=[...new Set(tastings.map(t=>t.winery).filter(Boolean))];
-  const all=[...new Set([...known,...fromData])].sort((a,b)=>a.localeCompare(b));
-  sel.innerHTML='<option value="">— choose a winery —</option>'+all.map(w=>`<option value="${w}">${w}</option>`).join('');
+// Known wineries per region/city for fallback suggestions
+const KNOWN_WINERIES = {
+  'Bern': {
+    '': ['Engelsgruss', 'La cave Perrot', 'Pfisterweine', 'Schottweine', 'Silou wines Tschanz', 'Soland weinbaukapfgut', 'Tschanzweine', 'Weinbau Cordula', 'Weingut Frauenkopf'],
+    'Twann': ['Engelsgruss', 'La cave Perrot', 'Pfisterweine', 'Schottweine', 'Silou wines Tschanz', 'Soland weinbaukapfgut', 'Tschanzweine', 'Weinbau Cordula', 'Weingut Frauenkopf'],
+  },
+  'Neuchatel': {
+    '': ['Cave de la Vieille Tannerie', 'Cave distillerie de la Ruelle', 'Domaine Christalain', 'Domaine Henrioud', 'Domaine de Auvernier', 'Domaine de Montmollin', 'Domaine des Botanistes', 'François Gasser encaveur'],
+    'Auvernier': ['Cave distillerie de la Ruelle', 'Domaine de Auvernier', 'Domaine de Montmollin'],
+    'Boudry': ['Cave de la Vieille Tannerie', 'Domaine Christalain', 'Domaine des Botanistes', 'François Gasser encaveur'],
+    'Milvignes': ['Domaine Henrioud'],
+  },
+  'Valais': {
+    '': ['Cave David Rossier', 'Cave Gilbert Devayes', 'Cave La Tine - Fontannaz', 'Cave Le Bosset', 'Cave Lips', 'Cave de Bonheur', 'Cave de l\'Orlaya', 'Cave des Jumeaux', 'Cave du Vieux-Moulin', 'Defayes & Crettenand', 'Domaine de la Sarvaz', 'Jean-René Germanier', 'La Madeleine - Andre Fontannaz'],
+    'Ardon': ['Jean-René Germanier'],
+    'Conthey': ['Cave La Tine - Fontannaz'],
+    'Fully': ['Cave de Bonheur', 'Cave de l\'Orlaya', 'Cave des Jumeaux', 'Domaine de la Sarvaz'],
+    'Leytron': ['Cave David Rossier', 'Cave Gilbert Devayes', 'Cave Le Bosset', 'Cave Lips', 'Defayes & Crettenand'],
+    'Vétroz-Conthey': ['Cave du Vieux-Moulin', 'La Madeleine - Andre Fontannaz'],
+  },
+  'Vaud': {
+    '': ['Cave Es Gaillotes', 'Cave Hug', 'Cave L\'Escalier', 'Cave Stoky', 'Cave de la Muscadelle', 'Cave du Pasquier', 'Caveau Duboux', 'Cve de Mont-le-Grand', 'Domaine Aguet', 'Domaine Kusner', 'Domaine de Beau-Soleil', 'Domaine de Roliebot', 'Domaine de St. Agnan', 'Domaine de Vy Granges', 'Domaine des 4 menhirs', 'La Grande Vigne', 'Les Souches de Bamajo', 'Les découvertes', 'Reserve du Colombier', 'Vignenoble Cousin'],
+    'Concise': ['Cave du Pasquier', 'Domaine de St. Agnan', 'Domaine des 4 menhirs', 'Vignenoble Cousin'],
+    'Féchy': ['Cave L\'Escalier', 'Cave Stoky', 'Domaine Aguet', 'Domaine Kusner', 'Les Souches de Bamajo'],
+    'Lavaux-Grandvaux': ['Cave Hug', 'Caveau Duboux'],
+    'Lavigny': ['Cave Es Gaillotes'],
+    'Mont-sur-Rolle': ['Cave de la Muscadelle', 'Cve de Mont-le-Grand', 'Domaine de Beau-Soleil', 'Domaine de Roliebot', 'Domaine de Vy Granges', 'La Grande Vigne', 'Les découvertes', 'Reserve du Colombier'],
+  },
+};
+
+function getWinerySuggestions(query) {
+  const region = document.getElementById('f-region').value;
+  const city = document.getElementById('f-city').value.trim();
+
+  // Build ordered candidate list:
+  // 1. Last winery used
+  // 2. Wineries from history in this city
+  // 3. Wineries from history in this region
+  // 4. Known wineries for city/region
+  // 5. All wineries from history
+
+  const lastWinery = getLastWinery();
+  const fromCityHistory = [...new Set(tastings.filter(t => city && t.city === city).map(t => t.winery).filter(Boolean))];
+  const fromRegionHistory = [...new Set(tastings.filter(t => region && t.region === region).map(t => t.winery).filter(Boolean))];
+  const knownForCity = (KNOWN_WINERIES[region] || {})[city] || [];
+  const knownForRegion = (KNOWN_WINERIES[region] || {})[''] || [];
+  const allHistory = [...new Set(tastings.map(t => t.winery).filter(Boolean))];
+
+  const ordered = [...new Set([
+    ...(lastWinery ? [lastWinery] : []),
+    ...fromCityHistory,
+    ...fromRegionHistory,
+    ...knownForCity,
+    ...knownForRegion,
+    ...allHistory
+  ])];
+
+  if (!query) return ordered.slice(0, 10);
+  const q = query.toLowerCase();
+  return ordered.filter(w => w.toLowerCase().includes(q)).slice(0, 10);
 }
+
+function wineryAutocomplete(val) {
+  const box = document.getElementById('winery-suggestions');
+  const suggestions = getWinerySuggestions(val);
+  if (!suggestions.length) { box.style.display = 'none'; return; }
+
+  const lastWinery = getLastWinery();
+  const city = document.getElementById('f-city').value.trim();
+  const region = document.getElementById('f-region').value;
+
+  box.innerHTML = suggestions.map(w => {
+    const isLast = w === lastWinery;
+    const inCity = city && tastings.some(t => t.winery === w && t.city === city);
+    const inRegion = region && tastings.some(t => t.winery === w && t.region === region);
+    const meta = isLast ? '· last used' : inCity ? '· '+city : inRegion ? '· '+region : '';
+    return `<div class="city-sug" data-val="${w.replace(/"/g,'&quot;')}" onmousedown="pickWinery(this.dataset.val)">
+      ${w}<span class="sug-meta"> ${meta}</span>
+    </div>`;
+  }).join('');
+  box.style.display = 'block';
+}
+
+function pickWinery(val) {
+  document.getElementById('f-winery-custom').value = val;
+  document.getElementById('winery-suggestions').style.display = 'none';
+}
+
+let winerySugIdx = -1;
+function wineryKey(e) {
+  const box = document.getElementById('winery-suggestions');
+  const items = box.querySelectorAll('.city-sug');
+  if (e.key === 'ArrowDown') {
+    winerySugIdx = Math.min(winerySugIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === winerySugIdx));
+    e.preventDefault();
+  } else if (e.key === 'ArrowUp') {
+    winerySugIdx = Math.max(winerySugIdx - 1, -1);
+    items.forEach((el, i) => el.classList.toggle('active', i === winerySugIdx));
+    e.preventDefault();
+  } else if (e.key === 'Enter' && winerySugIdx >= 0) {
+    pickWinery(items[winerySugIdx].dataset.val);
+    winerySugIdx = -1; e.preventDefault();
+  } else if (e.key === 'Escape') {
+    box.style.display = 'none'; winerySugIdx = -1;
+  }
+}
+
+function setLastWinery(w) { if (w) localStorage.setItem('last_winery', w); }
+function getLastWinery() { return localStorage.getItem('last_winery') || ''; }
+
+function buildWineryDropdown() { /* replaced by wineryAutocomplete */ }
 buildWineryDropdown();
+// pre-fill city and winery with last used
+const _lastCity = getLastCity();
+if (_lastCity) document.getElementById('f-city').value = _lastCity;
+const _lastWinery = getLastWinery();
+if (_lastWinery) document.getElementById('f-winery-custom').value = _lastWinery;
 
 function updateCities(){
+  // refresh winery suggestions when region changes
+  const wInput = document.getElementById('f-winery-custom');
+  if (wInput) wineryAutocomplete(wInput.value);
   const m={'Valais':['Leytron','Vétroz-Conthey','Conthey','Fully','Ardon','Sion'],
     'Vaud':['Féchy','Lavigny','Lavaux-Grandvaux','Mont-sur-Rolle','Concise'],
     'Bern':['Twann','Ligerz'],'Neuchatel':['Boudry','Auvernier','Milvignes'],
@@ -523,7 +648,7 @@ document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
 
 // ─── SAVE ENTRY ──────────────────────────────────────────────────────────────
 function saveEntry(){
-  const winery=document.getElementById('f-winery-custom').value.trim()||v('f-winery-sel')||'';
+  const winery=document.getElementById('f-winery-custom').value.trim()||'';
   const name=v('f-name').trim();
   if(!winery||!name){ toast('Please fill in winery and wine name'); return; }
   const entry={
@@ -552,10 +677,10 @@ function saveEntry(){
     tastings.unshift(entry);
     toast('Tasting saved 🍷');
   }
-  saveLocal(); buildWineryDropdown();
+  saveLocal(); buildWineryDropdown(); setLastCity(entry.city); setLastWinery(entry.winery);
   // reset
   document.querySelectorAll('.tag.sel').forEach(t=>t.classList.remove('sel'));
-  ['f-winery-sel','f-winery-custom','f-name','f-year','f-price','f-event','f-notes','f-other','f-region','f-city','f-aoc','f-bought','f-buy'].forEach(id=>sv(id));
+  ['f-winery-custom','f-name','f-year','f-price','f-event','f-notes','f-other','f-region','f-city','f-aoc','f-bought','f-buy'].forEach(id=>sv(id));
   sv('f-colour','White');
   document.getElementById('f-date').value=new Date().toISOString().slice(0,10);
   stars=0; setStars(0);
@@ -719,7 +844,7 @@ function importJSON(evt){
       const merged=[...tastings]; let added=0;
       data.forEach(entry=>{ if(!merged.find(t=>t.id===entry.id)){merged.push(entry);added++;} });
       tastings=merged.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
-      saveLocal(); buildWineryDropdown(); renderHistory();
+      saveLocal(); buildWineryDropdown(); setLastCity(entry.city); setLastWinery(entry.winery); renderHistory();
       toast(added+' entries imported 🍷');
     }catch(err){ alert('Could not parse: '+err.message); }
   };
@@ -732,6 +857,77 @@ function clearAllData(){
   toast('All data cleared'); renderDriveStatus();
 }
 
+// ─── CITY AUTOCOMPLETE ───────────────────────────────────────────────────────
+const REGION_CITIES = {
+  'Valais':['Leytron','Vétroz-Conthey','Conthey','Fully','Ardon','Sion','Sierre','Martigny','Chamoson','Salquenen'],
+  'Vaud':['Féchy','Lavigny','Lavaux-Grandvaux','Mont-sur-Rolle','Concise','Morges','Aigle','Bex','Ollon','Yvorne'],
+  'Bern':['Twann','Ligerz','La Neuveville'],
+  'Neuchatel':['Boudry','Auvernier','Milvignes','Cortaillod'],
+  'Geneva':['Satigny','Dardagny','Lully','Russin']
+};
+
+function getCitySuggestions(query) {
+  // always include cities from past tastings
+  const fromHistory = [...new Set(tastings.map(t => t.city).filter(Boolean))];
+  // include region-based suggestions
+  const region = document.getElementById('f-region').value;
+  const regionCities = REGION_CITIES[region] || [];
+  // merge: history first (most relevant), then region defaults
+  const all = [...new Set([...fromHistory, ...regionCities])].sort((a,b) => a.localeCompare(b));
+  if (!query) return all.slice(0, 8);
+  const q = query.toLowerCase();
+  return all.filter(c => c.toLowerCase().includes(q)).slice(0, 8);
+}
+
+function cityAutocomplete(val) {
+  const box = document.getElementById('city-suggestions');
+  const suggestions = getCitySuggestions(val);
+  if (!suggestions.length) { box.style.display = 'none'; return; }
+  box.innerHTML = suggestions.map((c, i) => {
+    const fromHistory = tastings.some(t => t.city === c);
+    return `<div class="city-sug" data-val="${c}" onmousedown="pickCity('${c.replace(/'/g,"\'")}')">
+      ${c}<span class="sug-meta"> ${fromHistory ? '· visited' : ''}</span>
+    </div>`;
+  }).join('');
+  box.style.display = 'block';
+}
+
+function pickCity(val) {
+  document.getElementById('f-city').value = val;
+  document.getElementById('city-suggestions').style.display = 'none';
+  // refresh winery suggestions for new city
+  const wInput = document.getElementById('f-winery-custom');
+  wineryAutocomplete(wInput ? wInput.value : '');
+}
+
+let citySugIdx = -1;
+function cityKey(e) {
+  const box = document.getElementById('city-suggestions');
+  const items = box.querySelectorAll('.city-sug');
+  if (e.key === 'ArrowDown') {
+    citySugIdx = Math.min(citySugIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === citySugIdx));
+    e.preventDefault();
+  } else if (e.key === 'ArrowUp') {
+    citySugIdx = Math.max(citySugIdx - 1, -1);
+    items.forEach((el, i) => el.classList.toggle('active', i === citySugIdx));
+    e.preventDefault();
+  } else if (e.key === 'Enter' && citySugIdx >= 0) {
+    pickCity(items[citySugIdx].dataset.val);
+    citySugIdx = -1;
+    e.preventDefault();
+  } else if (e.key === 'Escape') {
+    box.style.display = 'none'; citySugIdx = -1;
+  }
+}
+
+function setLastCity(city) {
+  if (city) localStorage.setItem('last_city', city);
+}
+function getLastCity() {
+  return localStorage.getItem('last_city') || '';
+}
+
 // ─── EDIT ENTRY ──────────────────────────────────────────────────────────────
 let editingId = null;
 
@@ -742,9 +938,9 @@ function editEntry(id) {
 
   // populate form fields
   sv('f-region', t.region); updateCities();
-  sv('f-city', t.city);
+  sv('f-city', t.city); document.getElementById('city-suggestions').style.display='none';
   sv('f-winery-custom', t.winery);
-  sv('f-winery-sel', '');
+  // winery-sel removed
   sv('f-name', t.name);
   sv('f-year', t.year);
   sv('f-colour', t.colour||'White');
@@ -793,7 +989,7 @@ function cancelEdit() {
   document.getElementById('edit-banner').style.display = 'none';
   document.getElementById('save-btn').textContent = 'Save tasting';
   // clear form
-  ['f-winery-sel','f-winery-custom','f-name','f-year','f-price','f-event','f-notes',
+  ['f-winery-custom','f-name','f-year','f-price','f-event','f-notes',
    'f-other','f-region','f-city','f-aoc','f-bought','f-buy'].forEach(id => sv(id));
   sv('f-colour','White');
   document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
@@ -846,7 +1042,7 @@ async function uiDriveLoad() {
       const merged = [...tastings]; let added = 0;
       data.forEach(entry => { if (!merged.find(t => t.id === entry.id)) { merged.push(entry); added++; } });
       tastings = merged.sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
-      saveLocal(); buildWineryDropdown();
+      saveLocal(); buildWineryDropdown(); setLastCity(entry.city); setLastWinery(entry.winery);
       const ts = new Date().toLocaleString('fr-CH');
       localStorage.setItem('drive_last_sync', ts);
       renderDriveStatus('✓ Loaded from Drive — ' + ts, 'drive-ok');
