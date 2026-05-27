@@ -356,7 +356,11 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   <label>Cellar / visit notes</label>
   <textarea id="f-other" placeholder="Notes about the winery, people, visit…" style="min-height:50px"></textarea>
 
-  <button class="btn-primary" onclick="saveEntry()">Save tasting</button>
+  <div id="edit-banner" style="display:none;background:var(--red-light);border:1px solid var(--red-text);border-radius:var(--radius-sm);padding:8px 12px;margin-top:16px;font-size:13px;color:var(--red-text);display:none">
+  ✏️ Editing existing tasting — saving will update the original
+  <button onclick="cancelEdit()" style="float:right;background:transparent;border:none;cursor:pointer;color:var(--red-text);font-size:13px">✕ Cancel</button>
+</div>
+<button class="btn-primary" id="save-btn" onclick="saveEntry()">Save tasting</button>
 </div>
 
 <!-- ═══ HISTORY ═══ -->
@@ -537,14 +541,24 @@ function saveEntry(){
     buy:v('f-buy'),
     bottles_bought:v('f-bought')
   };
-  tastings.unshift(entry); saveLocal(); buildWineryDropdown();
+  if (editingId) {
+    const idx = tastings.findIndex(t => t.id === editingId);
+    if (idx !== -1) { entry.id = editingId; tastings[idx] = entry; }
+    editingId = null;
+    document.getElementById('edit-banner').style.display = 'none';
+    document.getElementById('save-btn').textContent = 'Save tasting';
+    toast('Tasting updated ✓');
+  } else {
+    tastings.unshift(entry);
+    toast('Tasting saved 🍷');
+  }
+  saveLocal(); buildWineryDropdown();
   // reset
   document.querySelectorAll('.tag.sel').forEach(t=>t.classList.remove('sel'));
   ['f-winery-sel','f-winery-custom','f-name','f-year','f-price','f-event','f-notes','f-other','f-region','f-city','f-aoc','f-bought','f-buy'].forEach(id=>sv(id));
   sv('f-colour','White');
   document.getElementById('f-date').value=new Date().toISOString().slice(0,10);
   stars=0; setStars(0);
-  toast('Tasting saved 🍷');
 }
 
 // ─── HISTORY ─────────────────────────────────────────────────────────────────
@@ -589,7 +603,10 @@ function renderHistory(){
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
         <span style="font-size:12px;color:${t.buy==='yes'?'#27ae60':t.buy==='no'?'#c0392b':'var(--text3)'}">
           ${t.buy==='yes'?'✓ Would buy again':t.buy==='no'?'✗ Would not buy':t.buy==='maybe'?'~ Maybe':''}</span>
-        <button class="btn-sm danger" style="padding:4px 8px;font-size:11px" onclick="delEntry(${t.id})">Delete</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn-sm" style="padding:4px 8px;font-size:11px" onclick="editEntry(${t.id})">✏️ Edit</button>
+          <button class="btn-sm danger" style="padding:4px 8px;font-size:11px" onclick="delEntry(${t.id})">Delete</button>
+        </div>
       </div>
     </div>`).join('')+(f.length>60?`<p style="text-align:center;font-size:12px;color:var(--text2);padding:1rem">Showing 60 — use search to narrow.</p>`:'');
 }
@@ -713,6 +730,75 @@ function clearAllData(){
   if(!confirm('Delete ALL tastings? This cannot be undone.')) return;
   tastings=[]; saveLocal(); buildWineryDropdown();
   toast('All data cleared'); renderDriveStatus();
+}
+
+// ─── EDIT ENTRY ──────────────────────────────────────────────────────────────
+let editingId = null;
+
+function editEntry(id) {
+  const t = tastings.find(x => x.id === id);
+  if (!t) return;
+  editingId = id;
+
+  // populate form fields
+  sv('f-region', t.region); updateCities();
+  sv('f-city', t.city);
+  sv('f-winery-custom', t.winery);
+  sv('f-winery-sel', '');
+  sv('f-name', t.name);
+  sv('f-year', t.year);
+  sv('f-colour', t.colour||'White');
+  sv('f-aoc', t.aoc);
+  sv('f-price', t.price);
+  sv('f-event', t.event);
+  sv('f-date', t.date);
+  sv('f-notes', t.notes);
+  sv('f-other', t.other_notes);
+  sv('f-buy', t.buy);
+  sv('f-bought', t.bottles_bought);
+  stars = t.rating || 0; setStars(stars);
+
+  // restore tags — clear all first, then re-select matches or add custom
+  const groups = { grapes: t.grapes||[], aromas: t.aromas||[], taste: t.taste||[], food: t.food||[] };
+  Object.entries(groups).forEach(([gid, vals]) => {
+    document.querySelectorAll('#'+gid+' .tag').forEach(tag => {
+      tag.classList.toggle('sel', vals.includes(tag.textContent));
+    });
+    // add any custom tags not already in the list
+    vals.forEach(val => {
+      const existing = [...document.querySelectorAll('#'+gid+' .tag')].find(t => t.textContent === val);
+      if (!existing) {
+        const tag = document.createElement('span');
+        tag.className = 'tag sel';
+        tag.textContent = val;
+        tag.onclick = () => toggleTag(tag);
+        document.getElementById(gid).appendChild(tag);
+      }
+    });
+  });
+
+  // show banner, update button
+  const banner = document.getElementById('edit-banner');
+  banner.style.display = 'block';
+  document.getElementById('save-btn').textContent = 'Update tasting';
+
+  // scroll to top of log tab
+  showTab('log', document.querySelectorAll('.nav-btn')[0]);
+  document.querySelector('main').scrollTo({ top: 0, behavior: 'smooth' });
+  toast('Editing — make changes and tap Update');
+}
+
+function cancelEdit() {
+  editingId = null;
+  document.getElementById('edit-banner').style.display = 'none';
+  document.getElementById('save-btn').textContent = 'Save tasting';
+  // clear form
+  ['f-winery-sel','f-winery-custom','f-name','f-year','f-price','f-event','f-notes',
+   'f-other','f-region','f-city','f-aoc','f-bought','f-buy'].forEach(id => sv(id));
+  sv('f-colour','White');
+  document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+  document.querySelectorAll('.tag.sel').forEach(t => t.classList.remove('sel'));
+  stars = 0; setStars(0);
 }
 
 // ─── GOOGLE DRIVE (simple OAuth popup, no service account) ──────────────────
