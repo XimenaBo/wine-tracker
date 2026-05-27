@@ -1,0 +1,53 @@
+{
+  "_meta": {
+    "description": "Grape varieties and styles by wine type for Wine Tracker app",
+    "notes": "Edit this file to add or remove suggestions per type. Types not listed here will show all varieties. Add your own types and lists freely.",
+    "last_updated": "2026-05-27"
+  },
+
+  "White": [
+    "Chasselas", "Fendant", "Chardonnay", "Petite Arvine", "Humagne Blanche",
+    "Amigne", "Johannisberg", "Sylvaner", "Pinot Blanc", "Pinot Gris",
+    "Sauvignon Blanc", "Viognier", "Roussanne", "Marsanne", "Aligoté",
+    "Riesling", "Gewurztraminer", "Muscat", "Completer", "Räuschling",
+    "Heida / Païen", "Lafnetscha", "Gwäss", "Himbertscha",
+    "Assemblage blanc", "Blend blanc"
+  ],
+
+  "Red": [
+    "Pinot Noir", "Gamay", "Cornalin", "Humagne Rouge", "Syrah",
+    "Merlot", "Cabernet Franc", "Cabernet Sauvignon", "Diolinoir",
+    "Gamaret", "Garanoir", "Divico", "Ancellotta", "Bondola",
+    "Nebbiolo", "Barbera", "Freisa", "Sangiovese",
+    "Assemblage rouge", "Dôle", "Blend rouge"
+  ],
+
+  "Rosé": [
+    "Pinot Noir", "Gamay", "Syrah", "Cornalin", "Merlot",
+    "Oeil de Perdrix", "Rosé d'assemblage"
+  ],
+
+  "Sparkling": [
+    "Chasselas", "Pinot Noir", "Chardonnay", "Pinot Blanc",
+    "Aligoté", "Méthode traditionnelle", "Brut", "Blanc de Blancs",
+    "Blanc de Noirs", "Rosé brut", "Assemblage pétillant"
+  ],
+
+  "Orange": [
+    "Chasselas", "Chardonnay", "Pinot Gris", "Savagnin",
+    "Gewurztraminer", "Muscat", "Petite Arvine", "Roussanne",
+    "Macération pelliculaire", "Vin orange naturel"
+  ],
+
+  "Sweet": [
+    "Amigne", "Petite Arvine", "Johannisberg", "Malvoisie / Pinot Gris",
+    "Muscat", "Riesling", "Gewurztraminer", "Gewurztraminer vendanges tardives",
+    "Flétri", "Grain noble", "Vendanges tardives", "Vin de paille"
+  ],
+
+  "Eaux-de-vie": [
+    "Poire Williams", "Prune / Quetsche", "Abricot", "Framboise",
+    "Kirsch", "Marc de Raisin", "Gentiane", "Génépi",
+    "Williamine", "Eau-de-vie de vin"
+  ]
+}

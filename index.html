@@ -178,7 +178,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
       <select id="f-region" onchange="updateCities()">
         <option value="">—</option>
         <option>Valais</option><option>Vaud</option><option>Bern</option>
-        <option>Neuchatel</option><option>Geneva</option><option>Other</option>
+        <option>Neuchatel</option><option>Geneva</option><option>Ticino</option><option>Other</option>
       </select>
     </div>
     <div>
@@ -186,7 +186,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
       <div style="position:relative">
         <input type="text" id="f-city" placeholder="e.g. Leytron" autocomplete="off"
           oninput="cityAutocomplete(this.value)"
-          onfocus="cityAutocomplete(this.value)"
+          onfocus="cityAutocomplete(this.value); document.getElementById('city-suggestions').style.display='block';"
           onblur="setTimeout(()=>document.getElementById('city-suggestions').style.display='none',150)"
           onkeydown="cityKey(event)">
         <div id="city-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg);border:1px solid var(--border2);border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm);z-index:50;max-height:180px;overflow-y:auto;box-shadow:var(--shadow)"></div>
@@ -198,7 +198,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   <div style="position:relative">
     <input type="text" id="f-winery-custom" placeholder="Winery name…" autocomplete="off"
       oninput="wineryAutocomplete(this.value)"
-      onfocus="wineryAutocomplete(this.value)"
+      onfocus="wineryAutocomplete(this.value); document.getElementById('winery-suggestions').style.display='block';"
       onblur="setTimeout(()=>document.getElementById('winery-suggestions').style.display='none',150)"
       onkeydown="wineryKey(event)">
     <div id="winery-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg);border:1px solid var(--border2);border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm);z-index:50;max-height:220px;overflow-y:auto;box-shadow:var(--shadow)"></div>
@@ -218,7 +218,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   <div class="row3">
     <div>
       <label>Type</label>
-      <select id="f-colour">
+      <select id="f-colour" onchange="refreshGrapeTags()">
         <option>White</option><option>Red</option><option>Rosé</option>
         <option>Sparkling</option><option>Orange</option><option>Sweet</option>
         <option>Eaux-de-vie</option>
@@ -239,29 +239,8 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
     </div>
   </div>
 
-  <label>Grape / style</label>
-  <div class="tag-group" id="grapes">
-    <span class="tag" onclick="toggleTag(this)">Chasselas</span>
-    <span class="tag" onclick="toggleTag(this)">Pinot Noir</span>
-    <span class="tag" onclick="toggleTag(this)">Gamay</span>
-    <span class="tag" onclick="toggleTag(this)">Petite Arvine</span>
-    <span class="tag" onclick="toggleTag(this)">Humagne Rouge</span>
-    <span class="tag" onclick="toggleTag(this)">Humagne Blanche</span>
-    <span class="tag" onclick="toggleTag(this)">Cornalin</span>
-    <span class="tag" onclick="toggleTag(this)">Syrah</span>
-    <span class="tag" onclick="toggleTag(this)">Gamaret</span>
-    <span class="tag" onclick="toggleTag(this)">Divico</span>
-    <span class="tag" onclick="toggleTag(this)">Merlot</span>
-    <span class="tag" onclick="toggleTag(this)">Chardonnay</span>
-    <span class="tag" onclick="toggleTag(this)">Viognier</span>
-    <span class="tag" onclick="toggleTag(this)">Païen / Heida</span>
-    <span class="tag" onclick="toggleTag(this)">Fendant</span>
-    <span class="tag" onclick="toggleTag(this)">Amigne</span>
-    <span class="tag" onclick="toggleTag(this)">Johannisberg</span>
-    <span class="tag" onclick="toggleTag(this)">Cabernet Franc</span>
-    <span class="tag" onclick="toggleTag(this)">Diolinoir</span>
-    <span class="tag" onclick="toggleTag(this)">Blend</span>
-  </div>
+  <label>Grape / style <span id="grape-label-hint" style="font-weight:400;font-size:11px;color:var(--text3)"></span></label>
+  <div class="tag-group" id="grapes"></div>
   <div class="add-tag-row">
     <input type="text" id="new-grape" placeholder="Add a variety…">
     <button class="add-tag-btn" onclick="addTag('grapes','new-grape')">+ Add</button>
@@ -520,35 +499,37 @@ function getWinerySuggestions(query) {
   const region = document.getElementById('f-region').value;
   const city = document.getElementById('f-city').value.trim();
   const db = (typeof KNOWN_WINERIES !== 'undefined') ? KNOWN_WINERIES : {};
-
-  // Priority order:
-  // 1. Last winery used
-  // 2. Wineries from personal history in this exact city
-  // 3. Wineries from personal history in this region
-  // 4. Wineries from DB for this city
-  // 5. Wineries from DB for this region
-  // 6. All personal history
-
-  const lastWinery = getLastWinery();
-  const fromCityHistory = [...new Set(tastings.filter(t => city && t.city === city).map(t => t.winery).filter(Boolean))];
-  const fromRegionHistory = [...new Set(tastings.filter(t => region && t.region === region).map(t => t.winery).filter(Boolean))];
   const dbRegion = db[region] || {};
-  const dbForCity = dbRegion[city] || [];
-  const dbForRegion = [...new Set(Object.values(dbRegion).flat())];
-  const allHistory = [...new Set(tastings.map(t => t.winery).filter(Boolean))];
 
-  const ordered = [...new Set([
-    ...(lastWinery ? [lastWinery] : []),
-    ...fromCityHistory,
-    ...fromRegionHistory,
-    ...dbForCity,
-    ...dbForRegion,
-    ...allHistory
-  ])];
+  let candidates = [];
 
-  if (!query) return ordered.slice(0, 12);
+  if (city && dbRegion[city]) {
+    // Narrowest: city is selected — show DB wineries for that city + history for that city
+    const dbForCity = dbRegion[city] || [];
+    const historyCity = [...new Set(tastings.filter(t => t.city === city).map(t => t.winery).filter(Boolean))];
+    const lastW = getLastWinery();
+    // last visited first if it matches city, then history, then DB (alphabetical)
+    const lastInCity = lastW && (historyCity.includes(lastW) || dbForCity.includes(lastW)) ? [lastW] : [];
+    candidates = [...new Set([...lastInCity, ...historyCity, ...dbForCity.sort((a,b) => a.localeCompare(b))])];
+
+  } else if (region && Object.keys(dbRegion).length) {
+    // Region selected but no city — show all wineries in region
+    const dbForRegion = [...new Set(Object.entries(dbRegion).filter(([k]) => k !== '').flatMap(([,v]) => v))].sort((a,b) => a.localeCompare(b));
+    const historyRegion = [...new Set(tastings.filter(t => t.region === region).map(t => t.winery).filter(Boolean))];
+    const lastW = getLastWinery();
+    const lastInRegion = lastW && (historyRegion.includes(lastW) || dbForRegion.includes(lastW)) ? [lastW] : [];
+    candidates = [...new Set([...lastInRegion, ...historyRegion, ...dbForRegion])];
+
+  } else {
+    // Nothing selected — last winery + full personal history
+    const lastW = getLastWinery();
+    const allHistory = [...new Set(tastings.map(t => t.winery).filter(Boolean))];
+    candidates = [...new Set([...(lastW ? [lastW] : []), ...allHistory])];
+  }
+
+  if (!query) return candidates.slice(0, 12);
   const q = query.toLowerCase();
-  return ordered.filter(w => w.toLowerCase().includes(q)).slice(0, 12);
+  return candidates.filter(w => w.toLowerCase().includes(q)).slice(0, 12);
 }
 
 function wineryAutocomplete(val) {
@@ -564,7 +545,7 @@ function wineryAutocomplete(val) {
     const isLast = w === lastWinery;
     const inCityHistory = city && tastings.some(t => t.winery === w && t.city === city);
     const inRegionHistory = region && tastings.some(t => t.winery === w && t.region === region);
-    const meta = isLast ? '· last visited' : inCityHistory ? '· '+city : inRegionHistory ? '· '+region : '· database';
+    const meta = isLast ? '· last visited' : inCityHistory ? '· '+city : inRegionHistory ? '· '+region : '';
     return `<div class="city-sug" data-val="${w.replace(/"/g,'&quot;')}" onmousedown="pickWinery(this.dataset.val)">
       ${w}<span class="sug-meta"> ${meta}</span>
     </div>`;
@@ -638,17 +619,20 @@ const _lastCity = getLastCity();
 if (_lastCity) document.getElementById('f-city').value = _lastCity;
 const _lastWinery = getLastWinery();
 if (_lastWinery) document.getElementById('f-winery-custom').value = _lastWinery;
+// Init grape tags for default colour
+refreshGrapeTags();
 
 function updateCities(){
   // refresh winery suggestions when region changes
   const wInput = document.getElementById('f-winery-custom');
   if (wInput) wineryAutocomplete(wInput.value);
-  const m={'Valais':['Leytron','Vétroz-Conthey','Conthey','Fully','Ardon','Sion'],
-    'Vaud':['Féchy','Lavigny','Lavaux-Grandvaux','Mont-sur-Rolle','Concise'],
-    'Bern':['Twann','Ligerz'],'Neuchatel':['Boudry','Auvernier','Milvignes'],
-    'Geneva':['Satigny','Dardagny']};
-  const cities=m[v('f-region')]||[];
-  document.getElementById('f-city').placeholder=cities.join(', ')||'e.g. Leytron';
+  // Update city placeholder from DB
+  const region = v('f-region');
+  const db = (typeof KNOWN_WINERIES !== 'undefined') ? KNOWN_WINERIES : {};
+  const cities = region && db[region] ? Object.keys(db[region]).filter(k => k !== '').slice(0, 5) : [];
+  document.getElementById('f-city').placeholder = cities.length ? cities.join(', ') : 'e.g. Leytron';
+  // Show city suggestions dropdown immediately
+  cityAutocomplete('');
 }
 
 document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
@@ -661,8 +645,6 @@ function saveEntry(){
   confirmNewWinery(winery, () => _doSaveEntry(winery, name));
 }
 function _doSaveEntry(winery, name){
-  const name=v('f-name').trim();
-  if(!winery||!name){ toast('Please fill in winery and wine name'); return; }
   const entry={
     id:Date.now(), winery, name,
     year:v('f-year'), aoc:v('f-aoc'), colour:v('f-colour'),
@@ -696,6 +678,7 @@ function _doSaveEntry(winery, name){
   sv('f-colour','White');
   document.getElementById('f-date').value=new Date().toISOString().slice(0,10);
   stars=0; setStars(0);
+  refreshGrapeTags();
 }
 
 // ─── HISTORY ─────────────────────────────────────────────────────────────────
@@ -869,6 +852,48 @@ function clearAllData(){
   toast('All data cleared'); renderDriveStatus();
 }
 
+// ─── GRAPE TAGS (dynamic, filtered by wine type) ─────────────────────────────
+function refreshGrapeTags() {
+  const colour = document.getElementById('f-colour').value;
+  const db = (typeof GRAPE_DB !== 'undefined') ? GRAPE_DB : null;
+  const group = document.getElementById('grapes');
+  const hint = document.getElementById('grape-label-hint');
+
+  // Collect currently selected tags so we can restore them
+  const selected = new Set([...group.querySelectorAll('.tag.sel')].map(t => t.textContent));
+
+  // Determine which list to show
+  let varieties = [];
+  let hintText = '';
+  if (db && db[colour]) {
+    varieties = db[colour];
+    hintText = '· filtered for ' + colour.toLowerCase();
+  } else if (db) {
+    // Type not in DB — show all unique varieties across all types
+    varieties = [...new Set(Object.values(db).flat())].sort((a,b) => a.localeCompare(b));
+    hintText = '';
+  } else {
+    // Fallback if grapes.js not loaded
+    varieties = ['Chasselas','Pinot Noir','Gamay','Petite Arvine','Humagne Rouge',
+      'Humagne Blanche','Cornalin','Syrah','Gamaret','Divico','Merlot',
+      'Chardonnay','Viognier','Heida / Païen','Amigne','Johannisberg',
+      'Cabernet Franc','Diolinoir','Blend'];
+  }
+
+  if (hint) hint.textContent = hintText;
+
+  // Rebuild tag group, preserving selected state and any custom tags
+  const customTags = [...group.querySelectorAll('.tag')].filter(t => !varieties.includes(t.textContent));
+  group.innerHTML = varieties.map(v =>
+    `<span class="tag${selected.has(v) ? ' sel' : ''}" onclick="toggleTag(this)">${v}</span>`
+  ).join('');
+  // Re-add custom tags (user-added ones)
+  customTags.forEach(t => {
+    t.classList.toggle('sel', selected.has(t.textContent));
+    group.appendChild(t);
+  });
+}
+
 // ─── CITY AUTOCOMPLETE ───────────────────────────────────────────────────────
 const REGION_CITIES = {
   'Valais':['Leytron','Vétroz-Conthey','Conthey','Fully','Ardon','Sion','Sierre','Martigny','Chamoson','Salquenen'],
@@ -879,16 +904,27 @@ const REGION_CITIES = {
 };
 
 function getCitySuggestions(query) {
-  // always include cities from past tastings
-  const fromHistory = [...new Set(tastings.map(t => t.city).filter(Boolean))];
-  // include region-based suggestions
   const region = document.getElementById('f-region').value;
-  const regionCities = REGION_CITIES[region] || [];
-  // merge: history first (most relevant), then region defaults
-  const all = [...new Set([...fromHistory, ...regionCities])].sort((a,b) => a.localeCompare(b));
-  if (!query) return all.slice(0, 8);
+  const db = (typeof KNOWN_WINERIES !== 'undefined') ? KNOWN_WINERIES : {};
+
+  let candidates = [];
+
+  if (region && db[region]) {
+    // Cascading: only cities within the selected region
+    const dbCities = Object.keys(db[region]).filter(k => k !== '').sort((a,b) => a.localeCompare(b));
+    // Personal history cities in this region, first
+    const historyCities = [...new Set(tastings.filter(t => t.region === region).map(t => t.city).filter(Boolean))];
+    candidates = [...new Set([...historyCities, ...dbCities])];
+  } else if (!region) {
+    // No region selected — show last visited city first, then all history cities
+    const last = getLastCity();
+    const historyCities = [...new Set(tastings.map(t => t.city).filter(Boolean))];
+    candidates = [...new Set([...(last ? [last] : []), ...historyCities])];
+  }
+
+  if (!query) return candidates.slice(0, 12);
   const q = query.toLowerCase();
-  return all.filter(c => c.toLowerCase().includes(q)).slice(0, 8);
+  return candidates.filter(c => c.toLowerCase().includes(q)).slice(0, 12);
 }
 
 function cityAutocomplete(val) {
@@ -907,9 +943,17 @@ function cityAutocomplete(val) {
 function pickCity(val) {
   document.getElementById('f-city').value = val;
   document.getElementById('city-suggestions').style.display = 'none';
-  // refresh winery suggestions for new city
+  // Clear winery if it doesn't belong to new city, then refresh suggestions
   const wInput = document.getElementById('f-winery-custom');
-  wineryAutocomplete(wInput ? wInput.value : '');
+  const currentWinery = wInput ? wInput.value.trim() : '';
+  const region = document.getElementById('f-region').value;
+  const db = (typeof KNOWN_WINERIES !== 'undefined') ? KNOWN_WINERIES : {};
+  const cityWineries = (db[region] && db[region][val]) ? db[region][val] : [];
+  const historyMatch = tastings.some(t => t.city === val && t.winery === currentWinery);
+  if (currentWinery && !historyMatch && cityWineries.length && !cityWineries.includes(currentWinery)) {
+    if (wInput) wInput.value = '';
+  }
+  wineryAutocomplete('');
 }
 
 let citySugIdx = -1;
@@ -955,7 +999,7 @@ function editEntry(id) {
   // winery-sel removed
   sv('f-name', t.name);
   sv('f-year', t.year);
-  sv('f-colour', t.colour||'White');
+  sv('f-colour', t.colour||'White'); refreshGrapeTags();
   sv('f-aoc', t.aoc);
   sv('f-price', t.price);
   sv('f-event', t.event);
@@ -1007,6 +1051,7 @@ function cancelEdit() {
   document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
   document.querySelectorAll('.tag.sel').forEach(t => t.classList.remove('sel'));
   stars = 0; setStars(0);
+  refreshGrapeTags();
 }
 
 // ─── GOOGLE DRIVE (simple OAuth popup, no service account) ──────────────────
@@ -1063,6 +1108,8 @@ async function uiDriveLoad() {
   }, (err) => { renderDriveStatus('Error: ' + err, 'drive-err'); toast('Drive error: ' + err, 4000); });
 }
 </script>
+<script src="wineries.js"></script>
+<script src="grapes.js"></script>
 
 <script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
 </body>
