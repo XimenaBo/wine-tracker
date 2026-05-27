@@ -239,7 +239,11 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
     </div>
   </div>
 
-  <label>Grape / style <span id="grape-label-hint" style="font-weight:400;font-size:11px;color:var(--text3)"></span></label>
+  <label style="display:flex;align-items:center;gap:8px;margin-top:14px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:14px;color:var(--text);font-weight:400">
+    <input type="checkbox" id="f-blend" onchange="onBlendChange()" style="width:17px;height:17px;accent-color:var(--red);cursor:pointer;flex-shrink:0">
+    Assemblage / blend
+  </label>
+  <label style="margin-top:10px">Grape / style <span id="grape-label-hint" style="font-weight:400;font-size:11px;color:var(--text3)"></span></label>
   <div class="tag-group" id="grapes"></div>
   <div class="add-tag-row">
     <input type="text" id="new-grape" placeholder="Add a variety…">
@@ -321,7 +325,12 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   <div class="row2">
     <div>
       <label>Event / occasion</label>
-      <input type="text" id="f-event" placeholder="e.g. Open cellar Leytron">
+      <div style="position:relative">
+        <input type="text" id="f-event" placeholder="e.g. Open cellar Leytron" autocomplete="off"
+          onfocus="eventAC()" oninput="eventAC()"
+          onblur="setTimeout(()=>{const d=document.getElementById('event-drop');if(d)d.style.display='none'},150)">
+        <div id="event-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg);border:1px solid var(--border2);border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm);z-index:50;max-height:180px;overflow-y:auto;box-shadow:var(--shadow)"></div>
+      </div>
     </div>
     <div>
       <label>Date</label>
@@ -613,6 +622,8 @@ if (_lastCity) document.getElementById('f-city').value = _lastCity;
 const _lastWinery = getLastWinery();
 if (_lastWinery) document.getElementById('f-winery-custom').value = _lastWinery;
 // Init grape tags for default colour
+const _lastEvent = getLastEvent();
+if (_lastEvent) document.getElementById('f-event').value = _lastEvent;
 refreshGrapeTags();
 
 function updateCities(){
@@ -666,11 +677,12 @@ function _doSaveEntry(winery, name){
     tastings.unshift(entry);
     toast('Tasting saved 🍷');
   }
-  saveLocal(); buildWineryDropdown(); setLastCity(entry.city); setLastWinery(entry.winery);
+  saveLocal(); buildWineryDropdown(); setLastCity(entry.city); setLastWinery(entry.winery); setLastEvent(entry.event);
   // reset
   document.querySelectorAll('.tag.sel').forEach(t=>t.classList.remove('sel'));
   ['f-winery-custom','f-name','f-year','f-price','f-event','f-notes','f-other','f-region','f-city','f-aoc','f-bought','f-buy'].forEach(id=>sv(id));
   sv('f-colour','White');
+  document.getElementById('f-blend').checked = false;
   document.getElementById('f-date').value=new Date().toISOString().slice(0,10);
   stars=0; setStars(0);
   refreshGrapeTags();
@@ -712,7 +724,7 @@ function renderHistory(){
         </div>
       </div>
       ${t.grapes&&t.grapes.length?`<div class="pill-row">${t.grapes.map(g=>`<span class="pill">${g}</span>`).join('')}</div>`:''}
-      ${t.notes?`<div class="note-text">"${t.notes}"</div>`:''}
+      ${t.notes?`<div class="note-text"><i class="ti ti-glass" style="font-size:13px;vertical-align:-1px;margin-right:3px" aria-hidden="true"></i>"${t.notes}"</div>`:''}
       ${t.other_notes?`<div class="visit-text">🏡 ${t.other_notes}</div>`:''}
       ${t.food&&t.food.length?`<div style="font-size:11px;color:var(--text3);margin-top:4px">Pairs: ${t.food.join(', ')}</div>`:''}
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
@@ -834,7 +846,7 @@ function importJSON(evt){
       const merged=[...tastings]; let added=0;
       data.forEach(entry=>{ if(!merged.find(t=>t.id===entry.id)){merged.push(entry);added++;} });
       tastings=merged.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
-      saveLocal(); buildWineryDropdown(); setLastCity(entry.city); setLastWinery(entry.winery); renderHistory();
+      saveLocal(); buildWineryDropdown(); setLastCity(entry.city); setLastWinery(entry.winery); setLastEvent(entry.event); renderHistory();
       toast(added+' entries imported 🍷');
     }catch(err){ alert('Could not parse: '+err.message); }
   };
@@ -845,6 +857,46 @@ function clearAllData(){
   if(!confirm('Delete ALL tastings? This cannot be undone.')) return;
   tastings=[]; saveLocal(); buildWineryDropdown();
   toast('All data cleared'); renderDriveStatus();
+}
+
+// ─── BLEND CHECKBOX ──────────────────────────────────────────────────────────
+function onBlendChange() {
+  const checked = document.getElementById('f-blend').checked;
+  const colour = document.getElementById('f-colour').value;
+  const group = document.getElementById('grapes');
+  const blendTags = {
+    'Red':      ['Assemblage rouge','Blend rouge','Dôle'],
+    'White':    ['Assemblage blanc','Blend blanc'],
+    'Rosé':     ["Rosé d'assemblage"],
+    'Sparkling':['Assemblage pétillant'],
+  };
+  const targets = blendTags[colour] || ['Blend'];
+  [...group.querySelectorAll('.tag')].forEach(t => {
+    const isBlendTag = targets.some(b => t.textContent === b)
+      || t.textContent.toLowerCase().includes('assemblage')
+      || t.textContent.toLowerCase().includes('blend');
+    if (isBlendTag) t.classList.toggle('sel', checked);
+  });
+}
+
+// ─── EVENT AUTOCOMPLETE ───────────────────────────────────────────────────────
+function setLastEvent(e){ if(e) localStorage.setItem('last_event', e); }
+function getLastEvent(){ return localStorage.getItem('last_event') || ''; }
+
+function eventAC(){
+  const box = document.getElementById('event-drop');
+  const val = document.getElementById('f-event').value.trim();
+  const last = getLastEvent();
+  const fromHistory = [...new Set(tastings.map(t => t.event).filter(Boolean))];
+  const all = [...new Set([...(last ? [last] : []), ...fromHistory])];
+  const matches = val ? all.filter(e => e.toLowerCase().includes(val.toLowerCase())) : all;
+  if (!matches.length) { box.style.display='none'; return; }
+  box.innerHTML = matches.slice(0,6).map(e =>
+    `<div class="city-sug" data-val="${e.replace(/"/g,'&quot;')}" onmousedown="document.getElementById('f-event').value=this.dataset.val;document.getElementById('event-drop').style.display='none'">
+      ${e}${e===last?' <span class="sug-meta">· last event</span>':''}
+    </div>`
+  ).join('');
+  box.style.display='block';
 }
 
 // ─── GRAPE TAGS (dynamic, filtered by wine type) ─────────────────────────────
@@ -990,7 +1042,12 @@ function editEntry(id) {
   // winery-sel removed
   sv('f-name', t.name);
   sv('f-year', t.year);
-  sv('f-colour', t.colour||'White'); refreshGrapeTags();
+  sv('f-colour', t.colour||'White');
+  const _grapesList = t.grapes || [];
+  document.getElementById('f-blend').checked = _grapesList.some(g =>
+    g.toLowerCase().includes('assemblage') || g.toLowerCase().includes('blend') || g === 'Dôle'
+  );
+  refreshGrapeTags();
   sv('f-aoc', t.aoc);
   sv('f-price', t.price);
   sv('f-event', t.event);
@@ -1039,6 +1096,7 @@ function cancelEdit() {
   ['f-winery-custom','f-name','f-year','f-price','f-event','f-notes',
    'f-other','f-region','f-city','f-aoc','f-bought','f-buy'].forEach(id => sv(id));
   sv('f-colour','White');
+  document.getElementById('f-blend').checked = false;
   document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
   document.querySelectorAll('.tag.sel').forEach(t => t.classList.remove('sel'));
   stars = 0; setStars(0);
@@ -1090,7 +1148,7 @@ async function uiDriveLoad() {
       const merged = [...tastings]; let added = 0;
       data.forEach(entry => { if (!merged.find(t => t.id === entry.id)) { merged.push(entry); added++; } });
       tastings = merged.sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
-      saveLocal(); buildWineryDropdown(); setLastCity(entry.city); setLastWinery(entry.winery);
+      saveLocal(); buildWineryDropdown(); setLastCity(entry.city); setLastWinery(entry.winery); setLastEvent(entry.event);
       const ts = new Date().toLocaleString('fr-CH');
       localStorage.setItem('drive_last_sync', ts);
       renderDriveStatus('✓ Loaded from Drive — ' + ts, 'drive-ok');
