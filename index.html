@@ -903,6 +903,7 @@ function eventAC(){
 function refreshGrapeTags() {
   const colour = document.getElementById('f-colour').value;
   const db = (typeof GRAPE_DB !== 'undefined') ? GRAPE_DB : null;
+  console.log('[GRAPE DEBUG] colour=', colour, '| GRAPE_DB defined=', db !== null, '| db[colour]=', db ? db[colour] : 'n/a');
   const group = document.getElementById('grapes');
   const hint = document.getElementById('grape-label-hint');
 
