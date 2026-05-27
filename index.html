@@ -565,7 +565,7 @@ function showTab(t, btn){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+t).classList.add('active');
-  (btn||document.querySelectorAll('.nav-btn')[['log','history','compare','stats','drive'].indexOf(t)]).classList.add('active');
+  (btn||document.querySelectorAll('.nav-btn')[['log','history','compare','stats','cellar','drive'].indexOf(t)]).classList.add('active');
   if(t==='history') renderHistory();
   if(t==='compare') renderCompare();
   if(t==='stats') renderStats();
