@@ -513,66 +513,42 @@ function getTags(id){ return [...document.querySelectorAll('#'+id+' .tag.sel')].
 function v(id){ return document.getElementById(id).value; }
 function sv(id, val){ document.getElementById(id).value = val||''; }
 
-// Known wineries per region/city for fallback suggestions
-const KNOWN_WINERIES = {
-  'Bern': {
-    '': ['Engelsgruss', 'La cave Perrot', 'Pfisterweine', 'Schottweine', 'Silou wines Tschanz', 'Soland weinbaukapfgut', 'Tschanzweine', 'Weinbau Cordula', 'Weingut Frauenkopf'],
-    'Twann': ['Engelsgruss', 'La cave Perrot', 'Pfisterweine', 'Schottweine', 'Silou wines Tschanz', 'Soland weinbaukapfgut', 'Tschanzweine', 'Weinbau Cordula', 'Weingut Frauenkopf'],
-  },
-  'Neuchatel': {
-    '': ['Cave de la Vieille Tannerie', 'Cave distillerie de la Ruelle', 'Domaine Christalain', 'Domaine Henrioud', 'Domaine de Auvernier', 'Domaine de Montmollin', 'Domaine des Botanistes', 'François Gasser encaveur'],
-    'Auvernier': ['Cave distillerie de la Ruelle', 'Domaine de Auvernier', 'Domaine de Montmollin'],
-    'Boudry': ['Cave de la Vieille Tannerie', 'Domaine Christalain', 'Domaine des Botanistes', 'François Gasser encaveur'],
-    'Milvignes': ['Domaine Henrioud'],
-  },
-  'Valais': {
-    '': ['Cave David Rossier', 'Cave Gilbert Devayes', 'Cave La Tine - Fontannaz', 'Cave Le Bosset', 'Cave Lips', 'Cave de Bonheur', 'Cave de l\'Orlaya', 'Cave des Jumeaux', 'Cave du Vieux-Moulin', 'Defayes & Crettenand', 'Domaine de la Sarvaz', 'Jean-René Germanier', 'La Madeleine - Andre Fontannaz'],
-    'Ardon': ['Jean-René Germanier'],
-    'Conthey': ['Cave La Tine - Fontannaz'],
-    'Fully': ['Cave de Bonheur', 'Cave de l\'Orlaya', 'Cave des Jumeaux', 'Domaine de la Sarvaz'],
-    'Leytron': ['Cave David Rossier', 'Cave Gilbert Devayes', 'Cave Le Bosset', 'Cave Lips', 'Defayes & Crettenand'],
-    'Vétroz-Conthey': ['Cave du Vieux-Moulin', 'La Madeleine - Andre Fontannaz'],
-  },
-  'Vaud': {
-    '': ['Cave Es Gaillotes', 'Cave Hug', 'Cave L\'Escalier', 'Cave Stoky', 'Cave de la Muscadelle', 'Cave du Pasquier', 'Caveau Duboux', 'Cve de Mont-le-Grand', 'Domaine Aguet', 'Domaine Kusner', 'Domaine de Beau-Soleil', 'Domaine de Roliebot', 'Domaine de St. Agnan', 'Domaine de Vy Granges', 'Domaine des 4 menhirs', 'La Grande Vigne', 'Les Souches de Bamajo', 'Les découvertes', 'Reserve du Colombier', 'Vignenoble Cousin'],
-    'Concise': ['Cave du Pasquier', 'Domaine de St. Agnan', 'Domaine des 4 menhirs', 'Vignenoble Cousin'],
-    'Féchy': ['Cave L\'Escalier', 'Cave Stoky', 'Domaine Aguet', 'Domaine Kusner', 'Les Souches de Bamajo'],
-    'Lavaux-Grandvaux': ['Cave Hug', 'Caveau Duboux'],
-    'Lavigny': ['Cave Es Gaillotes'],
-    'Mont-sur-Rolle': ['Cave de la Muscadelle', 'Cve de Mont-le-Grand', 'Domaine de Beau-Soleil', 'Domaine de Roliebot', 'Domaine de Vy Granges', 'La Grande Vigne', 'Les découvertes', 'Reserve du Colombier'],
-  },
-};
+// ─── WINERY DATABASE (loaded from wineries.js) ───────────────────────────────
+// KNOWN_WINERIES is defined in wineries.js — loaded as a separate file for easy editing
 
 function getWinerySuggestions(query) {
   const region = document.getElementById('f-region').value;
   const city = document.getElementById('f-city').value.trim();
+  const db = (typeof KNOWN_WINERIES !== 'undefined') ? KNOWN_WINERIES : {};
 
-  // Build ordered candidate list:
+  // Priority order:
   // 1. Last winery used
-  // 2. Wineries from history in this city
-  // 3. Wineries from history in this region
-  // 4. Known wineries for city/region
-  // 5. All wineries from history
+  // 2. Wineries from personal history in this exact city
+  // 3. Wineries from personal history in this region
+  // 4. Wineries from DB for this city
+  // 5. Wineries from DB for this region
+  // 6. All personal history
 
   const lastWinery = getLastWinery();
   const fromCityHistory = [...new Set(tastings.filter(t => city && t.city === city).map(t => t.winery).filter(Boolean))];
   const fromRegionHistory = [...new Set(tastings.filter(t => region && t.region === region).map(t => t.winery).filter(Boolean))];
-  const knownForCity = (KNOWN_WINERIES[region] || {})[city] || [];
-  const knownForRegion = (KNOWN_WINERIES[region] || {})[''] || [];
+  const dbRegion = db[region] || {};
+  const dbForCity = dbRegion[city] || [];
+  const dbForRegion = [...new Set(Object.values(dbRegion).flat())];
   const allHistory = [...new Set(tastings.map(t => t.winery).filter(Boolean))];
 
   const ordered = [...new Set([
     ...(lastWinery ? [lastWinery] : []),
     ...fromCityHistory,
     ...fromRegionHistory,
-    ...knownForCity,
-    ...knownForRegion,
+    ...dbForCity,
+    ...dbForRegion,
     ...allHistory
   ])];
 
-  if (!query) return ordered.slice(0, 10);
+  if (!query) return ordered.slice(0, 12);
   const q = query.toLowerCase();
-  return ordered.filter(w => w.toLowerCase().includes(q)).slice(0, 10);
+  return ordered.filter(w => w.toLowerCase().includes(q)).slice(0, 12);
 }
 
 function wineryAutocomplete(val) {
@@ -586,9 +562,9 @@ function wineryAutocomplete(val) {
 
   box.innerHTML = suggestions.map(w => {
     const isLast = w === lastWinery;
-    const inCity = city && tastings.some(t => t.winery === w && t.city === city);
-    const inRegion = region && tastings.some(t => t.winery === w && t.region === region);
-    const meta = isLast ? '· last used' : inCity ? '· '+city : inRegion ? '· '+region : '';
+    const inCityHistory = city && tastings.some(t => t.winery === w && t.city === city);
+    const inRegionHistory = region && tastings.some(t => t.winery === w && t.region === region);
+    const meta = isLast ? '· last visited' : inCityHistory ? '· '+city : inRegionHistory ? '· '+region : '· database';
     return `<div class="city-sug" data-val="${w.replace(/"/g,'&quot;')}" onmousedown="pickWinery(this.dataset.val)">
       ${w}<span class="sug-meta"> ${meta}</span>
     </div>`;
@@ -624,6 +600,37 @@ function wineryKey(e) {
 function setLastWinery(w) { if (w) localStorage.setItem('last_winery', w); }
 function getLastWinery() { return localStorage.getItem('last_winery') || ''; }
 
+// ─── NEW WINERY CONFIRMATION ──────────────────────────────────────────────────
+function isKnownWinery(name) {
+  if (!name) return false;
+  const lower = name.toLowerCase();
+  // Check personal history
+  if (tastings.some(t => t.winery && t.winery.toLowerCase() === lower)) return true;
+  // Check database
+  const db = (typeof KNOWN_WINERIES !== 'undefined') ? KNOWN_WINERIES : {};
+  return Object.values(db).some(region =>
+    Object.values(region).some(cities =>
+      cities.some(w => w.toLowerCase() === lower)
+    )
+  );
+}
+
+function confirmNewWinery(name, onConfirm) {
+  if (isKnownWinery(name)) { onConfirm(); return; }
+  const banner = document.createElement('div');
+  banner.id = 'new-winery-confirm';
+  banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:2px solid var(--red);padding:16px;z-index:200;max-width:680px;margin:0 auto;box-shadow:0 -4px 20px rgba(0,0,0,.15)';
+  banner.innerHTML = `
+    <p style="font-size:14px;font-weight:500;margin-bottom:8px">🍷 New winery: <strong>${name}</strong></p>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:12px">This winery isn't in your history or the database. Save it as a new entry?</p>
+    <div style="display:flex;gap:8px">
+      <button onclick="document.getElementById('new-winery-confirm').remove(); arguments[0].stopPropagation();" style="flex:1;padding:10px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:14px;cursor:pointer;font-family:var(--font)">Cancel</button>
+      <button id="confirm-new-winery-btn" style="flex:2;padding:10px;background:var(--red);color:#fff;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:500;cursor:pointer;font-family:var(--font)">Yes, save as new winery</button>
+    </div>`;
+  document.body.appendChild(banner);
+  document.getElementById('confirm-new-winery-btn').onclick = () => { banner.remove(); onConfirm(); };
+}
+
 function buildWineryDropdown() { /* replaced by wineryAutocomplete */ }
 buildWineryDropdown();
 // pre-fill city and winery with last used
@@ -649,6 +656,11 @@ document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
 // ─── SAVE ENTRY ──────────────────────────────────────────────────────────────
 function saveEntry(){
   const winery=document.getElementById('f-winery-custom').value.trim()||'';
+  const name=v('f-name').trim();
+  if(!winery||!name){ toast('Please fill in winery and wine name'); return; }
+  confirmNewWinery(winery, () => _doSaveEntry(winery, name));
+}
+function _doSaveEntry(winery, name){
   const name=v('f-name').trim();
   if(!winery||!name){ toast('Please fill in winery and wine name'); return; }
   const entry={
