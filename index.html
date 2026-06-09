@@ -1436,7 +1436,8 @@ async function uiDriveLoad() {
       const data = await driveLoadFile();
       if (!data) { renderDriveStatus('No file found on Drive', 'drive-off'); toast('No wine_tastings.json found on Drive'); return; }
       const merged = [...tastings]; let added = 0;
-      data.forEach(entry => { if (!merged.find(t => t.id === entry.id)) { merged.push(entry); added++; } });
+      const incoming = Array.isArray(data) ? data : (data.tastings || []);
+incoming.forEach(entry => { if (!merged.find(t => t.id === entry.id)) { merged.push(entry); added++; } });
       tastings = merged.sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
       saveLocal(); buildWineryDropdown(); setLastCity(entry.city); setLastWinery(entry.winery); setLastEvent(entry.event);
   if (parseInt(entry.bottles_bought) > 0) autoAddToCellar(entry);
