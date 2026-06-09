@@ -1,4 +1,4 @@
-const CACHE = 'wine-tracker-v3';
+const CACHE = 'wine-tracker-v4';
 const ASSETS = ['/', '/index.html', '/drive-sync.js', '/wineries.js', '/grapes.js', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', e => {
