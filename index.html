@@ -540,8 +540,6 @@ let cellarPairingFilter = 'all';
 let tastings = [];
 let stars = 0;
 let colFilter = 'all';
-let driveReady = false;
-let driveFileId = null;
 
 function loadLocal(){
   try{ tastings = JSON.parse(localStorage.getItem(STORE)||'[]'); }catch(e){ tastings=[]; }
