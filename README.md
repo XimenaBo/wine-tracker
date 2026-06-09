@@ -16,6 +16,15 @@ Personal wine tasting tracker for Swiss Caves Ouvertes.
 
 ---
 
+## To share the logged wines with someone else##
+1. You save to Drive after each tasting session
+2. Share the wine_tastings.json file in Google Drive with your friend (right-click the file → Share → add their email)
+3. They open the app, connect with their Google account, tap Load from Drive — they get your full data
+4. They can add tastings and tap Save to Drive to update the shared file
+5. You tap Load from Drive next time to get their additions
+
+---
+
 ## Deploy to GitHub Pages (one-time, ~5 minutes)
 
 ### Step 1 — Create the repository
