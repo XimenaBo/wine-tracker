@@ -4,7 +4,6 @@ Personal wine tasting tracker for Swiss Caves Ouvertes.
 
 ## Live app
 **https://XimenaBo.github.io/wine-tracker**
-_(replace YOUR-USERNAME with your GitHub username after deploying)_
 
 ## Features
 - Log tastings on your phone, works offline
