@@ -1499,6 +1499,6 @@ incoming.forEach(entry => { if (!merged.find(t => t.id === entry.id)) { merged.p
   }, (err) => { renderDriveStatus('Error: ' + err, 'drive-err'); toast('Drive error: ' + err, 4000); });
 }
 </script>
-<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/wine-tracker/sw.js");</script>
 </body>
 </html>
