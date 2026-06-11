@@ -489,25 +489,13 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   <p class="section-head">Google Drive sync</p>
 
   <div class="drive-section">
-    <h3>Setup — one time only</h3>
-    <ol style="font-size:13px;color:var(--text2);line-height:2.2;padding-left:18px;margin-bottom:12px">
-      <li>Go to <strong>console.cloud.google.com</strong></li>
-      <li>Create a project → enable <strong>Google Drive API</strong></li>
-      <li>Credentials → <strong>+ Create Credentials → OAuth client ID</strong></li>
-      <li>Type: <strong>Web application</strong></li>
-      <li>Authorised JavaScript origins: add<br><code id="origin-hint">https://YOUR-USERNAME.github.io</code></li>
-      <li>Copy the <strong>Client ID</strong> and paste below</li>
-    </ol>
+    <h3>Sync</h3>
     <label>OAuth Client ID</label>
     <input type="text" id="gapi-client-id" placeholder="xxxx.apps.googleusercontent.com" oninput="localStorage.setItem('gapi_client_id', this.value)">
     <p style="font-size:11px;color:var(--text3);margin-top:6px">Saved in your browser only — never sent anywhere else.</p>
-  </div>
-
-  <div class="drive-section">
-    <h3>Sync</h3>
-    <div class="drive-status drive-off" id="drive-status">Not signed in</div>
-    <button class="btn-sm" onclick="uiDriveConnect()" style="width:100%;padding:10px;background:var(--red);color:#fff;border-color:var(--red);margin-bottom:8px">Connect to Google Drive</button>
-    <p style="font-size:13px;color:var(--text2);margin:10px 0">Saves <code>wine_tastings.json</code> to your Google Drive. Sign in when prompted.</p>
+    <div class="drive-status drive-off" id="drive-status" style="margin-top:10px">Not connected</div>
+    <button class="btn-sm" onclick="uiDriveConnect()" style="width:100%;padding:10px;background:var(--red);color:#fff;border-color:var(--red);margin:8px 0">Connect to Google Drive</button>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Saves <code>wine_tastings.json</code> to your Google Drive.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-sm" onclick="uiDriveSave()" style="flex:1">☁ Save to Drive</button>
       <button class="btn-sm" onclick="uiDriveLoad()" style="flex:1">↓ Load from Drive</button>
@@ -523,8 +511,29 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
       <button class="btn-sm danger" onclick="clearAllData()">⚠ Clear all</button>
     </div>
   </div>
-</div>
 
+  <div class="drive-section" style="background:var(--bg3)">
+    <h3>Setup guide — one time only</h3>
+    <ol style="font-size:13px;color:var(--text2);line-height:2.2;padding-left:18px">
+      <li>Go to <strong>console.cloud.google.com</strong> and create a project</li>
+      <li>Go to <strong>APIs & Services → Library</strong> and enable <strong>Google Drive API</strong></li>
+      <li>Go to <strong>APIs & Services → OAuth consent screen</strong>:
+        <ul style="padding-left:16px;line-height:2">
+          <li>Set User Type to <strong>External</strong></li>
+          <li>Under <strong>Data access</strong>, add scope: <code>drive.file</code></li>
+          <li>Under <strong>Audience</strong>, add your Gmail as a <strong>test user</strong></li>
+        </ul>
+      </li>
+      <li>Go to <strong>APIs & Services → Credentials → + Create Credentials → OAuth client ID</strong></li>
+      <li>Type: <strong>Web application</strong></li>
+      <li>Under <strong>Authorised JavaScript origins</strong> add:<br><code id="origin-hint">https://YOUR-USERNAME.github.io</code></li>
+      <li>Copy the <strong>Client ID</strong> and paste it in the field above</li>
+      <li>Tap <strong>Connect to Google Drive</strong> — a Google popup will ask you to authorise</li>
+    </ol>
+    <p style="font-size:11px;color:var(--text3);margin-top:10px">The app only accesses files it creates itself (<code>drive.file</code> scope) — it cannot see the rest of your Drive.</p>
+  </div>
+</div>
+  
 </main>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -791,7 +800,8 @@ function renderHistory(){
   let f=tastings.filter(t=>matchSearch(t,q));
   if(colFilter!=='all') f=f.filter(t=>t.colour===colFilter);
   document.getElementById('history-count').textContent=`(${f.length}/${tastings.length})`;
-  if(!f.length){ list.innerHTML='<p class="empty">No tastings found.</p>'; return; }
+  //if(!f.length){ list.innerHTML='<p class="empty">No tastings found.</p>'; return; }
+  if(!f.length){ list.innerHTML='<p class="empty">'+(tastings.length?'No tastings match.':'No tastings yet.<br><br><button class="btn-sm" onclick="loadDemo()" style="font-size:13px">Load demo data</button>')+'</p>'; return; }
   list.innerHTML=f.slice(0,60).map(t=>`
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
@@ -835,6 +845,7 @@ function renderCompare(){
   });
   const multi=Object.entries(groups).filter(([,v])=>v.length>1).sort((a,b)=>b[1].length-a[1].length);
   if(!tastings.length){ list.innerHTML='<p class="empty">No tastings yet.</p>'; return; }
+  //if(!tastings.length){ list.innerHTML='<p class="empty">No tastings yet.<br><br><button class="btn-sm" onclick="loadDemo()" style="font-size:13px">Load demo data</button></p>'; return; }
   if(!multi.length){ list.innerHTML='<p class="empty">Log the same wine more than once to compare vintages.</p>'; return; }
   list.innerHTML=multi.map(([key,entries],i)=>{
     const sorted=[...entries].sort((a,b)=>(b.year||0)-(a.year||0));
@@ -903,6 +914,19 @@ function toCSV(){
 }
 function toJSON(){ return JSON.stringify({tastings, cellar}, null, 2); }
 
+function loadDemo(){
+  fetch('demo.json')
+    .then(r => r.json())
+    .then(data => {
+      const incoming = Array.isArray(data) ? data : (data.tastings || []);
+      const merged = [...tastings]; let added = 0;
+      incoming.forEach(entry => { if(!merged.find(t => t.id === entry.id)){ merged.push(entry); added++; } });
+      tastings = merged.sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
+      saveLocal(); buildWineryDropdown(); renderHistory();
+      toast(added + ' demo tastings loaded 🍷');
+    })
+    .catch(() => toast('Could not load demo.json — make sure it is in your repo'));
+}  
 function exportCSV(){
   if(!tastings.length){toast('No tastings to export');return;}
   const a=document.createElement('a');
