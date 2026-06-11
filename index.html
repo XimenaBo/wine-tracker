@@ -915,7 +915,14 @@ function toggleCompare(i){
 
 // ─── STATS ───────────────────────────────────────────────────────────────────
 function renderStats(){
-  if(typeof initStats === 'function') initStats(tastings, cellar);
+  if(typeof Chart === 'undefined'){
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
+    s.onload=()=>{ if(typeof initStats==='function') initStats(tastings,cellar); };
+    document.head.appendChild(s);
+  } else {
+    if(typeof initStats==='function') initStats(tastings,cellar);
+  }
 }
 function barChart(){
   // replaced by stats.js
