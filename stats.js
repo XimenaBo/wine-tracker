@@ -463,7 +463,4 @@ function sEnsureChartJS(cb) {
   document.head.appendChild(s);
 }
 
-const _initStatsInner = initStats;
-window.initStats = function(tastings, cellar) {
-  sEnsureChartJS(() => _initStatsInner(tastings, cellar));
-};
+// Chart.js loading handled by renderStats in index.html
