@@ -1,5 +1,6 @@
 const CACHE = 'wine-tracker-v5';
-const ASSETS = ['/', '/index.html', '/drive-sync.js', '/wineries.js', '/grapes.js', '/stats.js', '/manifest.json', '/icon-192.png', '/icon-512.png'];
+//const ASSETS = ['/', '/index.html', '/drive-sync.js', '/wineries.js', '/grapes.js', '/stats.js', '/manifest.json', '/icon-192.png', '/icon-512.png'];
+const ASSETS = ['/wine-tracker/', '/wine-tracker/index.html', '/wine-tracker/drive-sync.js', '/wine-tracker/wineries.js', '/wine-tracker/grapes.js', '/wine-tracker/stats.js', '/wine-tracker/manifest.json', '/wine-tracker/icon-192.png', '/wine-tracker/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
