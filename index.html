@@ -791,7 +791,8 @@ function renderHistory(){
   let f=tastings.filter(t=>matchSearch(t,q));
   if(colFilter!=='all') f=f.filter(t=>t.colour===colFilter);
   document.getElementById('history-count').textContent=`(${f.length}/${tastings.length})`;
-  if(!f.length){ list.innerHTML='<p class="empty">No tastings found.</p>'; return; }
+  //if(!f.length){ list.innerHTML='<p class="empty">No tastings found.</p>'; return; }
+  if(!f.length){ list.innerHTML='<p class="empty">'+(tastings.length?'No tastings match.':'No tastings yet.<br><br><button class="btn-sm" onclick="loadDemo()" style="font-size:13px">Load demo data</button>')+'</p>'; return; }
   list.innerHTML=f.slice(0,60).map(t=>`
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
@@ -834,8 +835,8 @@ function renderCompare(){
     (groups[k]=groups[k]||[]).push(t);
   });
   const multi=Object.entries(groups).filter(([,v])=>v.length>1).sort((a,b)=>b[1].length-a[1].length);
-  //if(!tastings.length){ list.innerHTML='<p class="empty">No tastings yet.</p>'; return; }
-  if(!tastings.length){ list.innerHTML='<p class="empty">No tastings yet.<br><br><button class="btn-sm" onclick="loadDemo()" style="font-size:13px">Load demo data</button></p>'; return; }
+  if(!tastings.length){ list.innerHTML='<p class="empty">No tastings yet.</p>'; return; }
+  //if(!tastings.length){ list.innerHTML='<p class="empty">No tastings yet.<br><br><button class="btn-sm" onclick="loadDemo()" style="font-size:13px">Load demo data</button></p>'; return; }
   if(!multi.length){ list.innerHTML='<p class="empty">Log the same wine more than once to compare vintages.</p>'; return; }
   list.innerHTML=multi.map(([key,entries],i)=>{
     const sorted=[...entries].sort((a,b)=>(b.year||0)-(a.year||0));
