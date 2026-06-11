@@ -834,7 +834,8 @@ function renderCompare(){
     (groups[k]=groups[k]||[]).push(t);
   });
   const multi=Object.entries(groups).filter(([,v])=>v.length>1).sort((a,b)=>b[1].length-a[1].length);
-  if(!tastings.length){ list.innerHTML='<p class="empty">No tastings yet.</p>'; return; }
+  //if(!tastings.length){ list.innerHTML='<p class="empty">No tastings yet.</p>'; return; }
+  if(!tastings.length){ list.innerHTML='<p class="empty">No tastings yet.<br><br><button class="btn-sm" onclick="loadDemo()" style="font-size:13px">Load demo data</button></p>'; return; }
   if(!multi.length){ list.innerHTML='<p class="empty">Log the same wine more than once to compare vintages.</p>'; return; }
   list.innerHTML=multi.map(([key,entries],i)=>{
     const sorted=[...entries].sort((a,b)=>(b.year||0)-(a.year||0));
@@ -903,6 +904,19 @@ function toCSV(){
 }
 function toJSON(){ return JSON.stringify({tastings, cellar}, null, 2); }
 
+function loadDemo(){
+  fetch('demo.json')
+    .then(r => r.json())
+    .then(data => {
+      const incoming = Array.isArray(data) ? data : (data.tastings || []);
+      const merged = [...tastings]; let added = 0;
+      incoming.forEach(entry => { if(!merged.find(t => t.id === entry.id)){ merged.push(entry); added++; } });
+      tastings = merged.sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
+      saveLocal(); buildWineryDropdown(); renderHistory();
+      toast(added + ' demo tastings loaded 🍷');
+    })
+    .catch(() => toast('Could not load demo.json — make sure it is in your repo'));
+}  
 function exportCSV(){
   if(!tastings.length){toast('No tastings to export');return;}
   const a=document.createElement('a');
