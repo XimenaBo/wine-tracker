@@ -22,7 +22,10 @@ let _allTastings = [];
 let _charts = {};
 
 // ── ENTRY POINT ───────────────────────────────────────────────────────────────
+//function initStats(tastings, cellar) {
+  //_allTastings = tastings || [];
 function initStats(tastings, cellar) {
+  console.log('initStats called, tastings:', (tastings||[]).length);
   _allTastings = tastings || [];
   sYear = 'all';
   buildYearFilter();
