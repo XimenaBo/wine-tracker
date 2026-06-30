@@ -1,9 +1,11 @@
 # 🍷 Wine Tracker
 
-Personal wine tasting tracker for Swiss Caves Ouvertes.
+**Ximena's wine tasting and cellar tracker for the Swiss Caves Ouvertes**
+Record while tasting and keep a good overview of what's in the Swiss side of your cellar
+(To include other countries/wine regions in your tastings and cellar, just record directly in the log tab. Some stats will not work great and there are only Swiss cellars currently preloaded...but this might change in the future 😜)
 
 ## Live app
-**https://XimenaBo.github.io/wine-tracker**
+**https://YOUR-USERNAME.github.io/wine-tracker**
 
 ## Features
 - Log tastings on your phone, works offline
@@ -12,35 +14,47 @@ Personal wine tasting tracker for Swiss Caves Ouvertes.
 - Star ratings, vintage comparison, stats & charts
 - Google Drive sync (saves `wine_tastings.json` to your Drive)
 - Export CSV / JSON at any time
-- Installable as a PWA (home screen icon on iPhone & Android)
+- Install as a PWA (home screen icon on iPhone & Android) for easier access while at the Caves Ouvertes
+- Focus on tasting instead of recording yet have all the info you need for ordering again and for planning next year's Caves Ouvertes!
 
 ---
 
-## To share the logged wines with someone else##
-1. You save to Drive after each tasting session
+## To jointly log wines with someone else##
+Suppose you always go wine tasting with someone, or that you share your cellar with someone. You might want to have a joint record of tastings, or a joint view of the cellar's contents. In that case, follow the following instructions:
+1. Save to Drive after each tasting session
 2. Share the wine_tastings.json file in Google Drive with your friend (right-click the file → Share → add their email)
-3. They open the app, connect with their Google account, tap Load from Drive — they get your full data
+3. They open the app, connect with their Google account, tap Load from Drive — they get the latest data from wine_tastings.json
 4. They can add tastings and tap Save to Drive to update the shared file
 5. You tap Load from Drive next time to get their additions
 
 ---
 
-## Deploy to GitHub Pages (one-time, ~5 minutes)
+## Set up the app:
 
 ### Step 1 — Create the repository
 1. Go to **github.com** → click **+** → **New repository**
-2. Name it exactly: `wine-tracker`
+2. Name it `wine-tracker`
 3. Set it to **Public**
 4. Click **Create repository**
 
 ### Step 2 — Upload the files
 1. In your new empty repo, click **uploading an existing file**
-2. Drag and drop ALL files from this folder:
-   - `index.html`
-   - `manifest.json`
-   - `sw.js`
-   - `icon-192.png`
-   - `icon-512.png`
+2. Drag and drop the following files:
+| File | Purpose |
+|---|---|
+| `index.html` | The app itself |
+| `stats.js` | Stats tab — charts and drill-downs |
+| `drive-sync.js` | Google Drive sync logic |
+| `wineries.js` | Swiss winery database (used for autocomplete) |
+| `wineries.json` | Source data for `wineries.js` — edit this to add wineries |
+| `grapes.js` | Grape variety lists by wine type |
+| `grapes.json` | Source data for `grapes.js` — edit this to customise grape suggestions |
+| `demo.json` | Sample tastings shown via the "Load demo data" button |
+| `manifest.json` | PWA manifest — enables "Add to Home Screen" |
+| `sw.js` | Service worker — enables offline use and caching |
+| `icon-192.png`, `icon-512.png`, `icon.svg` | App icons |
+
+Upload **all of these** to the root of your repository — the app won't function correctly if any are missing, since `index.html` loads several of them directly.
 3. Click **Commit changes**
 
 ### Step 3 — Enable GitHub Pages
@@ -52,46 +66,73 @@ Personal wine tasting tracker for Swiss Caves Ouvertes.
 
 ---
 
-## Set up Google Drive sync (optional, ~10 minutes)
+## Set up Google Drive sync
 
-### Step 1 — Google Cloud Console
-1. Go to **console.cloud.google.com**
-2. Click **Select a project** → **New Project** → name it `Wine Tracker` → **Create**
-3. Make sure your new project is selected
+1. Go to **console.cloud.google.com** and create a project
+2. Go to **APIs & Services → Library** and enable **Google Drive API**
+3. Go to **APIs & Services → OAuth consent screen**:
+   - Set User Type to **External**
+   - Under **Data access**, add scope: `drive.file`
+   - Under **Audience**, add your Gmail as a **test user**
+4. Go to **APIs & Services → Credentials → + Create Credentials → OAuth client ID**
+5. Type: **Web application**
+6. Under **Authorised JavaScript origins** add: `https://YOUR-USERNAME.github.io`
+7. Copy the **Client ID** and paste it into the app's Drive tab
+8. Tap **Connect to Google Drive** — a Google popup will ask you to authorise
 
-### Step 2 — Enable APIs
-1. Go to **APIs & Services** → **Library**
-2. Search and enable: **Google Drive API**
-
-### Step 3 — Create API Key
-1. Go to **APIs & Services** → **Credentials**
-2. Click **+ Create Credentials** → **API key**
-3. Copy the key, click **Edit** → restrict it to **Google Drive API**
-
-### Step 4 — Create OAuth Client ID
-1. Click **+ Create Credentials** → **OAuth client ID**
-2. If prompted, configure the consent screen first:
-   - User type: **External** → fill in app name "Wine Tracker", your email
-   - Scopes: add `https://www.googleapis.com/auth/drive.file`
-   - Test users: add your Gmail address
-3. Back to Create OAuth Client ID:
-   - Application type: **Web application**
-   - Name: `Wine Tracker`
-   - Authorised JavaScript origins: add `https://YOUR-USERNAME.github.io`
-4. Click **Create** → copy the **Client ID**
-
-### Step 5 — Connect in the app
-1. Open your Wine Tracker app
-2. Go to **☁ Drive** tab
-3. Paste the **Client ID** and **API Key**
-4. Click **Connect to Google Drive**
-5. Authorise access — done!
-
-From now on, tap **Save to Drive** after each tasting session. Your `wine_tastings.json` will appear in the root of your Google Drive.
+> The app only accesses files it creates itself (`drive.file` scope) — it cannot see the rest of your Google Drive.
 
 ---
 
-## Import your existing tastings
-1. Open the app → **Tastings** tab → **↑ JSON**
-2. Select the `wine_import.json` file Claude provided
-3. All 320 entries will be imported instantly
+## Importing your existing tastings
+
+1. Prepare a JSON file with your tasting data (see the format below, or export from the app itself to see a working example)
+2. Open the app → **Tastings** tab → tap **↑ JSON**
+3. Select your file. Entries are merged with whatever you already have, matched by their `id` field, so re-importing the same file twice won't create duplicates but re-indexing would, so keep an eye on this.
+
+### JSON format
+
+The file should be either a plain array of tasting entries, or an object with `tastings` and `cellar` arrays, for example:
+
+```json
+{
+  "tastings": [
+    {
+      "id": 1,
+      "winery": "Cave Le Bosset",
+      "name": "Petite Arvine",
+      "year": "2023",
+      "colour": "White",
+      "region": "Valais",
+      "city": "Leytron",
+      "rating": 5,
+      "date": "2025-06-01",
+      "notes": "Apricot, mineral, long finish",
+      "other_notes": "Lovely visit, friendly owners",
+      "grapes": ["Petite Arvine"],
+      "food": ["Fish / seafood"],
+      "bottles_bought": "2",
+      "how_many_left": "1"
+    }
+  ],
+  "cellar": []
+}
+```
+
+Key fields:
+- `how_many_left` is the source of truth for your Cellar tab stock count — if missing, the app falls back to `bottles_bought`
+- `date` should be in `YYYY-MM-DD` format and represents when you tasted the wine (not the vintage)
+- `year` is the wine's vintage
+
+## Backing up your data
+
+- **Tastings tab → ↑/↓ JSON** — full backup of tastings + cellar, in the exact format the app uses; the best option for restoring or transferring between devices
+- **Tastings tab → ↓ CSV** — tastings only (not cellar), useful for opening in Excel or Google Sheets to browse or analyse outside the app
+- **Drive tab → Save to Drive** — saves the same JSON backup directly to your Google Drive (see setup above)
+
+It is suggested to back up to JSON periodically, especially before any bulk re-import.
+
+
+You are all set up and ready for the next Caves Ouvertes or any other Swiss wine tasting event: to know what you tasted, what you thought of each wine, how they rank to other wines you've had, and what to buy again!
+Cheers! 🥂 🍷 🎉
+
