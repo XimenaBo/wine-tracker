@@ -453,6 +453,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <p class="section-head" style="margin:0">My Cellar <span id="cellar-count" style="font-size:13px;font-weight:400;color:var(--text2)"></span></p>
     <button class="btn-sm" onclick="openAddCellar()" style="font-size:12px">+ Add wine</button>
+    <button class="btn-sm" onclick="rebuildCellarFromTastings()" style="font-size:12px;margin-left:6px">↻ Rebuild from tastings</button>
   </div>
   <div style="margin-bottom:12px;display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap">
     <span style="font-size:12px;color:var(--text2);font-weight:500;text-transform:uppercase;letter-spacing:.4px;padding-top:6px">Pairing:</span>
@@ -983,6 +984,8 @@ function importJSON(evt){
       incomingCellar.forEach(entry=>{ if(!mergedCellar.find(c=>c.id===entry.id)){mergedCellar.push(entry);cellarAdded++;} });
       cellar=mergedCellar;
       saveLocal(); saveCellar(); buildWineryDropdown(); renderHistory();
+      // Auto-rebuild cellar quantities for any imported tastings with stock data
+      if(incomingTastings.some(t => (t.how_many_left||t.bottles_bought))) rebuildCellarFromTastingsSilent();
       toast(added+' tastings + '+cellarAdded+' cellar entries imported 🍷');
     }catch(err){ alert('Could not parse: '+err.message); }
   };
@@ -1243,6 +1246,10 @@ function autoAddToCellar(entry) {
   // Match on identity fields only — winery, name, year, colour
   // Ratings, aromas, pairings and notes do NOT make a wine a different entry
   const norm = s => (s||'').trim().toLowerCase();
+  // how_many_left is the source of truth for current stock; fall back to bottles_bought if not set
+  const stockQty = entry.how_many_left !== undefined && entry.how_many_left !== ''
+    ? parseInt(entry.how_many_left)||0
+    : parseInt(entry.bottles_bought)||0;
   const existing = cellar.find(c =>
     norm(c.winery) === norm(entry.winery) &&
     norm(c.name)   === norm(entry.name)   &&
@@ -1250,17 +1257,82 @@ function autoAddToCellar(entry) {
     norm(c.colour) === norm(entry.colour)
   );
   if (existing) {
-    existing.bottles = (parseInt(existing.bottles)||0) + (parseInt(entry.bottles_bought)||0);
+    existing.bottles = (parseInt(existing.bottles)||0) + stockQty;
     saveCellar();
     toast('Cellar updated: ' + entry.name + ' now ' + existing.bottles + ' bottles');
   } else {
     cellar.unshift({ id:'c'+Date.now(), name:entry.name, winery:entry.winery, year:entry.year,
-      colour:entry.colour, price:entry.price, bottles:parseInt(entry.bottles_bought)||0,
+      colour:entry.colour, price:entry.price, bottles:stockQty,
       food:entry.food||[], notes:entry.notes||'', grapes:entry.grapes||[],
       added:entry.date||new Date().toISOString().slice(0,10) });
     saveCellar();
     toast('Added to cellar: ' + entry.name);
   }
+}
+
+function rebuildCellarFromTastings(){
+  // Rebuilds cellar bottle counts from scratch based on how_many_left (or bottles_bought as fallback)
+  // across ALL tastings — useful after a bulk import or to fix drift
+  if(!confirm('Rebuild cellar from all tastings? This recalculates bottle counts using "how many left" data and will overwrite current cellar quantities for matching wines.')) return;
+  const norm = s => (s||'').trim().toLowerCase();
+  const rebuilt = [];
+  tastings.forEach(t => {
+    const stockQty = t.how_many_left !== undefined && t.how_many_left !== '' && t.how_many_left !== null
+      ? parseInt(t.how_many_left)||0
+      : parseInt(t.bottles_bought)||0;
+    if (stockQty <= 0 && !(t.bottles_bought && parseInt(t.bottles_bought)>0)) return; // skip wines never bought
+    const existing = rebuilt.find(c =>
+      norm(c.winery)===norm(t.winery) && norm(c.name)===norm(t.name) &&
+      norm(c.year)===norm(t.year) && norm(c.colour)===norm(t.colour)
+    );
+    if (existing) {
+      existing.bottles += stockQty;
+    } else {
+      rebuilt.push({ id:'c'+Date.now()+Math.random().toString(36).slice(2,7), name:t.name, winery:t.winery, year:t.year,
+        colour:t.colour, price:t.price, bottles:stockQty,
+        food:t.food||[], notes:t.notes||'', grapes:t.grapes||[],
+        added:t.date||new Date().toISOString().slice(0,10) });
+    }
+  });
+  // Preserve any manually-added cellar entries that have no matching winery/name/year/colour in tastings
+  const manualOnly = cellar.filter(c => !tastings.some(t =>
+    norm(t.winery)===norm(c.winery) && norm(t.name)===norm(c.name) &&
+    norm(t.year)===norm(c.year) && norm(t.colour)===norm(c.colour)
+  ));
+  cellar = [...rebuilt, ...manualOnly];
+  saveCellar();
+  renderCellar();
+  toast('Cellar rebuilt — ' + rebuilt.length + ' wines from tastings 🍷');
+}
+
+function rebuildCellarFromTastingsSilent(){
+  // Same as rebuildCellarFromTastings but without the confirm dialog — used after JSON import
+  const norm = s => (s||'').trim().toLowerCase();
+  const rebuilt = [];
+  tastings.forEach(t => {
+    const stockQty = t.how_many_left !== undefined && t.how_many_left !== '' && t.how_many_left !== null
+      ? parseInt(t.how_many_left)||0
+      : parseInt(t.bottles_bought)||0;
+    if (stockQty <= 0 && !(t.bottles_bought && parseInt(t.bottles_bought)>0)) return;
+    const existing = rebuilt.find(c =>
+      norm(c.winery)===norm(t.winery) && norm(c.name)===norm(t.name) &&
+      norm(c.year)===norm(t.year) && norm(c.colour)===norm(t.colour)
+    );
+    if (existing) { existing.bottles += stockQty; }
+    else {
+      rebuilt.push({ id:'c'+Date.now()+Math.random().toString(36).slice(2,7), name:t.name, winery:t.winery, year:t.year,
+        colour:t.colour, price:t.price, bottles:stockQty,
+        food:t.food||[], notes:t.notes||'', grapes:t.grapes||[],
+        added:t.date||new Date().toISOString().slice(0,10) });
+    }
+  });
+  const manualOnly = cellar.filter(c => !tastings.some(t =>
+    norm(t.winery)===norm(c.winery) && norm(t.name)===norm(c.name) &&
+    norm(t.year)===norm(c.year) && norm(t.colour)===norm(c.colour)
+  ));
+  cellar = [...rebuilt, ...manualOnly];
+  saveCellar();
+  renderCellar();
 }
 
 function openAddCellar(id) {
@@ -1340,17 +1412,19 @@ function renderCellar(){
   const filterBar=document.getElementById('cellar-pairing-filters');
   filterBar.innerHTML=`<button class="filter-btn${cellarPairingFilter==='all'?' active':''}" onclick="setCellarPairingFilter('all',this)">All</button>`
     +allPairings.map(p=>`<button class="filter-btn${cellarPairingFilter===p?' active':''}" onclick="setCellarPairingFilter('${p.replace(/'/g,"\'")}',this)">${p}</button>`).join('');
-  const filtered=cellarPairingFilter==='all'?cellar:cellar.filter(c=>(c.food||[]).includes(cellarPairingFilter));
-  const inStock=cellar.filter(c=>c.bottles>0).length;
-  const totalBottles=cellar.reduce((s,c)=>s+(parseInt(c.bottles)||0),0);
+  // Only show wines currently in stock — zero-bottle wines are hidden from this list
+  const inStockCellar=cellar.filter(c=>(parseInt(c.bottles)||0)>0);
+  const filtered=cellarPairingFilter==='all'?inStockCellar:inStockCellar.filter(c=>(c.food||[]).includes(cellarPairingFilter));
+  const inStock=inStockCellar.length;
+  const totalBottles=inStockCellar.reduce((s,c)=>s+(parseInt(c.bottles)||0),0);
   document.getElementById('cellar-count').textContent=`(${inStock} wines · ${totalBottles} bottles)`;
   const list=document.getElementById('cellar-list');
   if(!filtered.length){
-    list.innerHTML=cellar.length?'<p class="empty">No wines match this pairing.</p>':'<p class="empty">Your cellar is empty.<br>Wines with bottles bought are added automatically,<br>or tap + Add wine above.</p>';
+    list.innerHTML=inStockCellar.length?'<p class="empty">No wines match this pairing.</p>':'<p class="empty">No bottles currently in stock.<br>Wines with bottles bought are added automatically,<br>or tap + Add wine above.</p>';
     return;
   }
   list.innerHTML=filtered.map(c=>`
-    <div class="card" style="${c.bottles===0?'opacity:.55':''}">
+    <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div style="flex:1;min-width:0">
           <span class="wine-name">${c.name}</span><span class="badge">${c.colour}</span>
