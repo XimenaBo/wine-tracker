@@ -403,12 +403,49 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 
 <!-- ═══ STATS ═══ -->
 <div id="tab-stats" class="section">
-  <p class="section-head">Stats</p>
+  <p class="section-head">Stats <span id="stats-year-label" style="font-size:13px;font-weight:400;color:var(--text2)">— all time</span></p>
+  <!-- year filter -->
+  <div id="stats-year-filter" style="display:flex;gap:6px;margin-bottom:1.25rem;flex-wrap:wrap"></div>
+  <!-- stat cards -->
   <div class="stat-grid" id="stat-grid"></div>
-  <div class="chart-wrap"><p class="chart-title">By type</p><div id="chart-colour"></div></div>
-  <div class="chart-wrap"><p class="chart-title">By region</p><div id="chart-region"></div></div>
-  <div class="chart-wrap"><p class="chart-title">Top wineries</p><div id="chart-wineries"></div></div>
-  <div class="chart-wrap"><p class="chart-title">Top grapes</p><div id="chart-grapes"></div></div>
+  <!-- donut charts -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
+    <div class="chart-wrap" style="padding:1rem">
+      <p class="chart-title">By wine type</p>
+      <div id="stats-leg-type" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+      <div style="position:relative;height:150px"><canvas id="stats-c-type" role="img" aria-label="Tastings by wine type"></canvas></div>
+      <p style="font-size:11px;color:var(--text2);text-align:center;margin-top:6px">Tap slice → grapes</p>
+    </div>
+    <div class="chart-wrap" style="padding:1rem">
+      <p class="chart-title">By region</p>
+      <div id="stats-leg-reg" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+      <div style="position:relative;height:150px"><canvas id="stats-c-reg" role="img" aria-label="Tastings by region"></canvas></div>
+      <p style="font-size:11px;color:var(--text2);text-align:center;margin-top:6px">Tap slice → villages</p>
+    </div>
+  </div>
+  <!-- drill-down panel -->
+  <div id="stats-drill"></div>
+  <!-- avg rating vertical bars -->
+  <div class="chart-wrap" style="margin-bottom:1rem;padding:1rem">
+    <p class="chart-title">Avg rating by wine type <span style="font-weight:400;font-size:10px;text-transform:none;letter-spacing:0">· tap → grapes</span></p>
+    <div id="stats-rating-vbars"></div>
+  </div>
+  <!-- visited + top rated side by side -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
+    <div class="chart-wrap" style="padding:1rem">
+      <p class="chart-title">Cellars with most tastings <span style="font-weight:400;font-size:10px;text-transform:none">top 5</span></p>
+      <div id="stats-visited"></div>
+    </div>
+    <div class="chart-wrap" style="padding:1rem">
+      <p class="chart-title">Top rated wineries <span style="font-weight:400;font-size:10px;text-transform:none">min 5 · tap → tastings</span></p>
+      <div id="stats-top-rated"></div>
+    </div>
+  </div>
+  <!-- cellars by region -->
+  <div class="chart-wrap" style="margin-bottom:1rem;padding:1rem">
+    <p class="chart-title">Cellars visited by region <span style="font-weight:400;font-size:10px;text-transform:none;letter-spacing:0">· tap → details</span></p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px" id="stats-cellar-bars"></div>
+  </div>
 </div>
 
 <!-- ═══ CELLAR ═══ -->
@@ -541,7 +578,9 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 <script src="drive-sync.js"></script>
 <script src="wineries.js"></script>
 <script src="grapes.js"></script>
+<script src="/wine-tracker/stats.js"></script>
 <script>
+  
 // ─── STATE ───────────────────────────────────────────────────────────────────
 const STORE = 'wine_tastings_v3';
 const CELLAR_STORE = 'wine_cellar_v1';
@@ -877,30 +916,17 @@ function toggleCompare(i){
 
 // ─── STATS ───────────────────────────────────────────────────────────────────
 function renderStats(){
-  const n=tastings.length;
-  const avg=n?(tastings.reduce((s,t)=>s+(t.rating||0),0)/n).toFixed(1):'—';
-  const nw=[...new Set(tastings.map(t=>t.winery))].length;
-  const nr=[...new Set(tastings.map(t=>t.region).filter(Boolean))].length;
-  document.getElementById('stat-grid').innerHTML=`
-    <div class="stat-card"><div class="stat-num">${n}</div><div class="stat-lbl">Tastings</div></div>
-    <div class="stat-card"><div class="stat-num">${nw}</div><div class="stat-lbl">Wineries</div></div>
-    <div class="stat-card"><div class="stat-num">${nr}</div><div class="stat-lbl">Regions</div></div>
-    <div class="stat-card"><div class="stat-num">${avg}</div><div class="stat-lbl">Avg rating</div></div>`;
-  const cnt=(arr,key)=>{const m={};arr.forEach(t=>{const v=t[key]||'?';m[v]=(m[v]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]);};
-  barChart('chart-colour',cnt(tastings,'colour'));
-  barChart('chart-region',cnt(tastings,'region').slice(0,6));
-  barChart('chart-wineries',cnt(tastings,'winery').slice(0,8));
-  const gc={};tastings.forEach(t=>(t.grapes||[]).forEach(g=>{if(g)gc[g]=(gc[g]||0)+1;}));
-  barChart('chart-grapes',Object.entries(gc).sort((a,b)=>b[1]-a[1]).slice(0,10));
+  if(typeof Chart === 'undefined'){
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
+    s.onload=()=>{ if(typeof initStats==='function') initStats(tastings,cellar); };
+    document.head.appendChild(s);
+  } else {
+    if(typeof initStats==='function') initStats(tastings,cellar);
+  }
 }
-function barChart(id,data){
-  const c=document.getElementById(id);
-  if(!data.length){c.innerHTML='<p style="font-size:13px;color:var(--text2)">No data yet</p>';return;}
-  const max=Math.max(...data.map(d=>d[1]));
-  c.innerHTML=data.map(([l,v])=>`<div class="bar-row">
-    <span class="bar-lbl" title="${l}">${l}</span>
-    <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(v/max*100)}%"></div></div>
-    <span class="bar-val">${v}</span></div>`).join('');
+function barChart(){
+  // replaced by stats.js
 }
 
 // ─── EXPORT / IMPORT ─────────────────────────────────────────────────────────
@@ -1474,6 +1500,6 @@ incoming.forEach(entry => { if (!merged.find(t => t.id === entry.id)) { merged.p
   }, (err) => { renderDriveStatus('Error: ' + err, 'drive-err'); toast('Drive error: ' + err, 4000); });
 }
 </script>
-<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/wine-tracker/sw.js");</script>
 </body>
 </html>
