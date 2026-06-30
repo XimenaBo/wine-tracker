@@ -553,27 +553,6 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
       <button class="btn-sm danger" onclick="clearAllData()">⚠ Clear all</button>
     </div>
   </div>
-
-  <div class="drive-section" style="background:var(--bg3)">
-    <h3>Setup guide — one time only</h3>
-    <ol style="font-size:13px;color:var(--text2);line-height:2.2;padding-left:18px">
-      <li>Go to <strong>console.cloud.google.com</strong> and create a project</li>
-      <li>Go to <strong>APIs & Services → Library</strong> and enable <strong>Google Drive API</strong></li>
-      <li>Go to <strong>APIs & Services → OAuth consent screen</strong>:
-        <ul style="padding-left:16px;line-height:2">
-          <li>Set User Type to <strong>External</strong></li>
-          <li>Under <strong>Data access</strong>, add scope: <code>drive.file</code></li>
-          <li>Under <strong>Audience</strong>, add your Gmail as a <strong>test user</strong></li>
-        </ul>
-      </li>
-      <li>Go to <strong>APIs & Services → Credentials → + Create Credentials → OAuth client ID</strong></li>
-      <li>Type: <strong>Web application</strong></li>
-      <li>Under <strong>Authorised JavaScript origins</strong> add:<br><code id="origin-hint">https://YOUR-USERNAME.github.io</code></li>
-      <li>Copy the <strong>Client ID</strong> and paste it in the field above</li>
-      <li>Tap <strong>Connect to Google Drive</strong> — a Google popup will ask you to authorise</li>
-    </ol>
-    <p style="font-size:11px;color:var(--text3);margin-top:10px">The app only accesses files it creates itself (<code>drive.file</code> scope) — it cannot see the rest of your Drive.</p>
-  </div>
 </div>
   
 </main>
