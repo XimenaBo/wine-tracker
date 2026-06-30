@@ -985,7 +985,7 @@ function importJSON(evt){
       cellar=mergedCellar;
       saveLocal(); saveCellar(); buildWineryDropdown(); renderHistory();
       // Auto-rebuild cellar quantities for any imported tastings with stock data
-      if(incomingTastings.some(t => (t.how_many_left||t.bottles_bought))) rebuildCellarFromTastingsSilent();
+      if(incomingTastings.some(t => (t.how_many_left!==undefined&&t.how_many_left!=='') || t.bottles_bought)) rebuildCellarFromTastingsSilent();
       toast(added+' tastings + '+cellarAdded+' cellar entries imported 🍷');
     }catch(err){ alert('Could not parse: '+err.message); }
   };
