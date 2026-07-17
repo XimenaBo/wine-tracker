@@ -517,6 +517,7 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
 // ─── STATE ───────────────────────────────────────────────────────────────────
 const STORE = 'wine_tastings_v3';
 let cellarPairingFilter = 'all';
+let _cellarCache = null; // cached display order, rebuilt only when tab is opened fresh
 let cellarFiltersOpen = false;
 let cellarFilters = { type:'all', winery:'all', region:'all', city:'all', grape:'all', event:'all', yearBought:'all', pairing:'all' };
 let tastings = [];
@@ -529,7 +530,8 @@ function loadLocal(){
 function saveLocal(){ localStorage.setItem(STORE, JSON.stringify(tastings)); }
 loadLocal();
 
-function cellarFromTastings(){
+function cellarFromTastings(forceRefresh){
+  if (_cellarCache && !forceRefresh) return _cellarCache;
   const norm = s => (s||'').trim().toLowerCase();
   const groups = {};
   tastings.forEach(t => {
@@ -546,8 +548,9 @@ function cellarFromTastings(){
     groups[key].bottles += qty;
     (t.food||[]).forEach(f => { if(f && !groups[key].food.includes(f)) groups[key].food.push(f); });
   });
-  return Object.values(groups).filter(c => c.bottles > 0)
+  _cellarCache = Object.values(groups).filter(c => c.bottles > 0)
     .sort((a,b) => b.bottles - a.bottles || (a.name||'').localeCompare(b.name||''));
+  return _cellarCache;
 }
 
 // ─── UI HELPERS ──────────────────────────────────────────────────────────────
@@ -566,7 +569,7 @@ function showTab(t, btn){
   if(t==='compare') renderCompare();
   if(t==='stats') renderStats();
   if(t==='drive') renderDriveStatus();
-  if(t==='cellar') renderCellar();
+  if(t==='cellar'){ _cellarCache = null; renderCellar(); }
 }
 
 function toggleTag(el){ el.classList.toggle('sel'); }
@@ -1221,6 +1224,15 @@ function updateBottles(cellarKey, delta){
   } else {
     const t = matches[0];
     t.how_many_left = String(Math.max(0, parseInt(t.how_many_left||0) + delta));
+  }
+  // Update cached display order's bottle count without resorting
+  if (_cellarCache) {
+    const norm2 = s => (s||'').trim().toLowerCase();
+    const entry = _cellarCache.find(c => c.id === cellarKey);
+    if (entry) {
+      entry.bottles = matches.reduce((s,t) => s + (parseInt(t.how_many_left)||0), 0);
+      if (entry.bottles <= 0) _cellarCache = _cellarCache.filter(c => c.id !== cellarKey);
+    }
   }
   saveLocal(); renderCellar();
 }
