@@ -874,10 +874,10 @@ function renderStats(){
   if(typeof Chart === 'undefined'){
     const s=document.createElement('script');
     s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
-    s.onload=()=>{ if(typeof initStats==='function') initStats(tastings,cellar); };
+    s.onload=()=>{ if(typeof initStats==='function') initStats(tastings,[]); };
     document.head.appendChild(s);
   } else {
-    if(typeof initStats==='function') initStats(tastings,cellar);
+    if(typeof initStats==='function') initStats(tastings,[]);
   }
 }
 function barChart(){
