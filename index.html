@@ -461,6 +461,13 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
     <button class="btn-sm" onclick="toggleCellarFilters()" id="cellar-filters-toggle" style="font-size:12px">▾ Filters <span id="cellar-filters-count" style="color:var(--red)"></span></button>
   </div>
   <div id="cellar-filters-panel" style="display:none;margin-bottom:14px"></div>
+  <div style="margin-bottom:10px;position:relative">
+    <input type="text" id="cellar-search" placeholder="Search wines, wineries, grapes…"
+      oninput="renderCellar()"
+      style="width:100%;padding:9px 34px 9px 12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);font-size:14px;font-family:var(--font);background:var(--bg);color:var(--text)">
+    <span onclick="document.getElementById('cellar-search').value='';renderCellar()"
+      style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text3);font-size:16px">✕</span>
+  </div>
   <div id="cellar-list"></div>
 
   <!-- Pairing suggestions panel -->
@@ -1361,6 +1368,7 @@ function toggleCellarOverviewDrill(type){
 
 function renderCellar(){
   const inStockCellar = cellarFromTastings();
+  const _cellarQ = (document.getElementById('cellar-search')?.value||'').trim().toLowerCase();
   const filtered = inStockCellar.filter(c => {
     if (cellarFilters.type!=='all' && c.colour!==cellarFilters.type) return false;
     if (cellarFilters.winery!=='all' && c.winery!==cellarFilters.winery) return false;
@@ -1370,6 +1378,10 @@ function renderCellar(){
     if (cellarFilters.event!=='all' && c.event!==cellarFilters.event) return false;
     if (cellarFilters.pairing!=='all' && !(c.food||[]).includes(cellarFilters.pairing)) return false;
     if (cellarFilters.yearBought!=='all' && (c.added||'').slice(0,4)!==cellarFilters.yearBought) return false;
+    if (_cellarQ) {
+      const haystack = [c.name, c.winery, c.colour, c.region, c.city, ...(c.grapes||[]), ...(c.food||[])].join(' ').toLowerCase();
+      if (!haystack.includes(_cellarQ)) return false;
+    }
     return true;
   });
   const inStock = inStockCellar.length;
