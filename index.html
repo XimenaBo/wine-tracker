@@ -454,8 +454,6 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
     <p class="section-head" style="margin:0">My Cellar <span id="cellar-count" style="font-size:13px;font-weight:400;color:var(--text2)"></span></p>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="btn-sm" onclick="toggleCellarOverview()" id="cellar-overview-toggle" style="font-size:12px">▾ Overview</button>
-      <button class="btn-sm" onclick="openAddCellar()" style="font-size:12px">+ Add wine</button>
-      <button class="btn-sm" onclick="rebuildCellarFromTastings()" style="font-size:12px">↻ Rebuild from tastings</button>
     </div>
   </div>
   <div id="cellar-overview" style="display:none;margin-bottom:14px"></div>
@@ -464,55 +462,6 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   </div>
   <div id="cellar-filters-panel" style="display:none;margin-bottom:14px"></div>
   <div id="cellar-list"></div>
-
-  <!-- Add/Edit modal -->
-  <div id="cellar-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;overflow-y:auto;-webkit-overflow-scrolling:touch">
-    <div style="background:var(--bg);max-width:520px;margin:2rem auto 4rem;border-radius:var(--radius);padding:1.25rem">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-        <h3 id="cellar-modal-title" style="font-size:16px;font-weight:600">Add to cellar</h3>
-        <button onclick="closeCellarModal()" style="background:transparent;border:none;font-size:22px;cursor:pointer;color:var(--text2);line-height:1">✕</button>
-      </div>
-      <div class="row2">
-        <div><label>Wine name</label><input type="text" id="cm-name" placeholder="e.g. Petite Arvine"></div>
-        <div><label>Winery</label><input type="text" id="cm-winery" placeholder="e.g. Cave Le Bosset"></div>
-      </div>
-      <div class="row2">
-        <div><label>Vintage</label><input type="number" id="cm-year" placeholder="2022" min="1970" max="2035"></div>
-        <div><label>Type</label>
-          <select id="cm-colour">
-            <option>White</option><option>Red</option><option>Rosé</option>
-            <option>Sparkling</option><option>Orange</option><option>Sweet</option><option>Eaux-de-vie</option>
-          </select>
-        </div>
-      </div>
-      <div class="row2">
-        <div><label>Bottles in cellar</label><input type="number" id="cm-bottles" placeholder="1" min="0" step="1"></div>
-        <div><label>Price paid (CHF)</label><input type="number" id="cm-price" placeholder="18" min="0" step="0.5"></div>
-      </div>
-      <label>Food pairings</label>
-      <div class="tag-group" id="cm-food-tags">
-        <span class="tag" onclick="toggleTag(this)">Fish / seafood</span>
-        <span class="tag" onclick="toggleTag(this)">Cheese</span>
-        <span class="tag" onclick="toggleTag(this)">Raclette</span>
-        <span class="tag" onclick="toggleTag(this)">Fondue</span>
-        <span class="tag" onclick="toggleTag(this)">Charcuterie</span>
-        <span class="tag" onclick="toggleTag(this)">White meat</span>
-        <span class="tag" onclick="toggleTag(this)">Red meat</span>
-        <span class="tag" onclick="toggleTag(this)">Game / chasse</span>
-        <span class="tag" onclick="toggleTag(this)">BBQ</span>
-        <span class="tag" onclick="toggleTag(this)">Aperitif</span>
-        <span class="tag" onclick="toggleTag(this)">Dessert</span>
-      </div>
-      <div class="add-tag-row">
-        <input type="text" id="cm-food-custom" placeholder="Add a pairing…">
-        <button class="add-tag-btn" onclick="addCellarTag()">+ Add</button>
-      </div>
-      <label>Notes</label>
-      <textarea id="cm-notes" placeholder="Any notes about this bottle…" style="min-height:50px"></textarea>
-      <input type="hidden" id="cm-id">
-      <button class="btn-primary" onclick="saveCellarEntry()">Save to cellar</button>
-    </div>
-  </div>
 
   <!-- Pairing suggestions panel -->
   <div id="pairing-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;overflow-y:auto;-webkit-overflow-scrolling:touch">
@@ -567,8 +516,6 @@ textarea{resize:vertical;min-height:64px;line-height:1.5}
   
 // ─── STATE ───────────────────────────────────────────────────────────────────
 const STORE = 'wine_tastings_v3';
-const CELLAR_STORE = 'wine_cellar_v1';
-let cellar = [];
 let cellarPairingFilter = 'all';
 let cellarFiltersOpen = false;
 let cellarFilters = { type:'all', winery:'all', region:'all', city:'all', grape:'all', event:'all', yearBought:'all', pairing:'all' };
@@ -578,11 +525,30 @@ let colFilter = 'all';
 
 function loadLocal(){
   try{ tastings = JSON.parse(localStorage.getItem(STORE)||'[]'); }catch(e){ tastings=[]; }
-  try{ cellar = JSON.parse(localStorage.getItem(CELLAR_STORE)||'[]'); }catch(e){ cellar=[]; }
 }
 function saveLocal(){ localStorage.setItem(STORE, JSON.stringify(tastings)); }
-function saveCellar(){ localStorage.setItem(CELLAR_STORE, JSON.stringify(cellar)); }
 loadLocal();
+
+function cellarFromTastings(){
+  const norm = s => (s||'').trim().toLowerCase();
+  const groups = {};
+  tastings.forEach(t => {
+    const qty = parseInt(t.how_many_left||0);
+    if (!t.winery && !t.name) return;
+    const key = norm(t.winery)+'|||'+norm(t.name)+'|||'+norm(t.year||'')+'|||'+norm(t.colour||'');
+    if (!groups[key]) groups[key] = {
+      id: key, name:t.name, winery:t.winery, year:t.year,
+      colour:t.colour, region:t.region, city:t.city,
+      price:t.price, grapes:t.grapes||[], food:t.food||[],
+      notes:t.notes||'', event:t.event||'', added:t.date||'',
+      bottles:0
+    };
+    groups[key].bottles += qty;
+    (t.food||[]).forEach(f => { if(f && !groups[key].food.includes(f)) groups[key].food.push(f); });
+  });
+  return Object.values(groups).filter(c => c.bottles > 0)
+    .sort((a,b) => b.bottles - a.bottles || (a.name||'').localeCompare(b.name||''));
+}
 
 // ─── UI HELPERS ──────────────────────────────────────────────────────────────
 function toast(msg, dur=2500){
@@ -924,7 +890,7 @@ function toCSV(){
   }).join(','));
   return [cols.join(','),...rows].join('\n');
 }
-function toJSON(){ return JSON.stringify({tastings, cellar}, null, 2); }
+function toJSON(){ return JSON.stringify(tastings, null, 2); }
 
 function loadDemo(){
   fetch('demo.json')
@@ -961,17 +927,17 @@ function importJSON(evt){
     try{
       const data=JSON.parse(e.target.result);
       const incomingTastings=Array.isArray(data)?data:(data.tastings||[]);
-      const incomingCellar=Array.isArray(data)?[]:(data.cellar||[]);
       const merged=[...tastings]; let added=0;
-      incomingTastings.forEach(entry=>{ if(!merged.find(t=>t.id===entry.id)){merged.push(entry);added++;} });
+      incomingTastings.forEach(entry=>{
+        const existing = merged.find(t=>t.id===entry.id);
+        if(!existing){ merged.push(entry); added++; }
+        else if(entry.how_many_left!==undefined && entry.how_many_left!==''){
+          existing.how_many_left = entry.how_many_left;
+        }
+      });
       tastings=merged.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
-      const mergedCellar=[...cellar]; let cellarAdded=0;
-      incomingCellar.forEach(entry=>{ if(!mergedCellar.find(c=>c.id===entry.id)){mergedCellar.push(entry);cellarAdded++;} });
-      cellar=mergedCellar;
-      saveLocal(); saveCellar(); buildWineryDropdown(); renderHistory();
-      // Auto-rebuild cellar quantities for any imported tastings with stock data
-      if(incomingTastings.some(t => (t.how_many_left!==undefined&&t.how_many_left!=='') || t.bottles_bought)) rebuildCellarFromTastingsSilent();
-      toast(added+' tastings + '+cellarAdded+' cellar entries imported 🍷');
+      saveLocal(); buildWineryDropdown(); renderHistory();
+      toast(added+' tastings imported 🍷');
     }catch(err){ alert('Could not parse: '+err.message); }
   };
   r.readAsText(file); evt.target.value='';
@@ -1227,129 +1193,6 @@ function cancelEdit() {
 
 // ─── MY CELLAR ───────────────────────────────────────────────────────────────
 
-function autoAddToCellar(entry) {
-  // Match on identity fields only — winery, name, year, colour
-  // Ratings, aromas, pairings and notes do NOT make a wine a different entry
-  const norm = s => (s||'').trim().toLowerCase();
-  // how_many_left is the source of truth for current stock; fall back to bottles_bought if not set
-  const stockQty = entry.how_many_left !== undefined && entry.how_many_left !== ''
-    ? parseInt(entry.how_many_left)||0
-    : parseInt(entry.bottles_bought)||0;
-  const existing = cellar.find(c =>
-    norm(c.winery) === norm(entry.winery) &&
-    norm(c.name)   === norm(entry.name)   &&
-    norm(c.year)   === norm(entry.year)   &&
-    norm(c.colour) === norm(entry.colour)
-  );
-  if (existing) {
-    existing.bottles = (parseInt(existing.bottles)||0) + stockQty;
-    saveCellar();
-    toast('Cellar updated: ' + entry.name + ' now ' + existing.bottles + ' bottles');
-  } else {
-    cellar.unshift({ id:'c'+Date.now(), name:entry.name, winery:entry.winery, year:entry.year,
-      colour:entry.colour, price:entry.price, bottles:stockQty,
-      food:entry.food||[], notes:entry.notes||'', grapes:entry.grapes||[],
-      added:entry.date||new Date().toISOString().slice(0,10) });
-    saveCellar();
-    toast('Added to cellar: ' + entry.name);
-  }
-}
-
-function rebuildCellarFromTastings(){
-  // Rebuilds cellar bottle counts from scratch based on how_many_left (or bottles_bought as fallback)
-  // across ALL tastings — useful after a bulk import or to fix drift
-  if(!confirm('Rebuild cellar from all tastings? This recalculates bottle counts using "how many left" data and will overwrite current cellar quantities for matching wines.')) return;
-  const norm = s => (s||'').trim().toLowerCase();
-  const rebuilt = [];
-  tastings.forEach(t => {
-    const stockQty = t.how_many_left !== undefined && t.how_many_left !== '' && t.how_many_left !== null
-      ? parseInt(t.how_many_left)||0
-      : parseInt(t.bottles_bought)||0;
-    if (stockQty <= 0 && !(t.bottles_bought && parseInt(t.bottles_bought)>0)) return; // skip wines never bought
-    const existing = rebuilt.find(c =>
-      norm(c.winery)===norm(t.winery) && norm(c.name)===norm(t.name) &&
-      norm(c.year)===norm(t.year) && norm(c.colour)===norm(t.colour)
-    );
-    if (existing) {
-      existing.bottles += stockQty;
-    } else {
-      rebuilt.push({ id:'c'+Date.now()+Math.random().toString(36).slice(2,7), name:t.name, winery:t.winery, year:t.year,
-        colour:t.colour, price:t.price, bottles:stockQty,
-        food:t.food||[], notes:t.notes||'', grapes:t.grapes||[],
-        added:t.date||new Date().toISOString().slice(0,10) });
-    }
-  });
-  // Preserve any manually-added cellar entries that have no matching winery/name/year/colour in tastings
-  const manualOnly = cellar.filter(c => !tastings.some(t =>
-    norm(t.winery)===norm(c.winery) && norm(t.name)===norm(c.name) &&
-    norm(t.year)===norm(c.year) && norm(t.colour)===norm(c.colour)
-  ));
-  cellar = [...rebuilt, ...manualOnly];
-  saveCellar();
-  renderCellar();
-  toast('Cellar rebuilt — ' + rebuilt.length + ' wines from tastings 🍷');
-}
-
-function rebuildCellarFromTastingsSilent(){
-  // Same as rebuildCellarFromTastings but without the confirm dialog — used after JSON import
-  const norm = s => (s||'').trim().toLowerCase();
-  const rebuilt = [];
-  tastings.forEach(t => {
-    const stockQty = t.how_many_left !== undefined && t.how_many_left !== '' && t.how_many_left !== null
-      ? parseInt(t.how_many_left)||0
-      : parseInt(t.bottles_bought)||0;
-    if (stockQty <= 0 && !(t.bottles_bought && parseInt(t.bottles_bought)>0)) return;
-    const existing = rebuilt.find(c =>
-      norm(c.winery)===norm(t.winery) && norm(c.name)===norm(t.name) &&
-      norm(c.year)===norm(t.year) && norm(c.colour)===norm(t.colour)
-    );
-    if (existing) { existing.bottles += stockQty; }
-    else {
-      rebuilt.push({ id:'c'+Date.now()+Math.random().toString(36).slice(2,7), name:t.name, winery:t.winery, year:t.year,
-        colour:t.colour, price:t.price, bottles:stockQty,
-        food:t.food||[], notes:t.notes||'', grapes:t.grapes||[],
-        added:t.date||new Date().toISOString().slice(0,10) });
-    }
-  });
-  const manualOnly = cellar.filter(c => !tastings.some(t =>
-    norm(t.winery)===norm(c.winery) && norm(t.name)===norm(c.name) &&
-    norm(t.year)===norm(c.year) && norm(t.colour)===norm(c.colour)
-  ));
-  cellar = [...rebuilt, ...manualOnly];
-  saveCellar();
-  renderCellar();
-}
-
-function openAddCellar(id) {
-  document.getElementById('cellar-modal-title').textContent = id ? 'Edit cellar entry' : 'Add to cellar';
-  ['cm-name','cm-winery','cm-year','cm-price','cm-notes','cm-id'].forEach(i => document.getElementById(i).value='');
-  document.getElementById('cm-bottles').value='1';
-  document.getElementById('cm-colour').value='White';
-  document.querySelectorAll('#cm-food-tags .tag').forEach(t=>t.classList.remove('sel'));
-  [...document.querySelectorAll('#cm-food-tags .tag[data-custom]')].forEach(t=>t.remove());
-  if (id) {
-    const c=cellar.find(x=>x.id===id); if(!c) return;
-    document.getElementById('cm-id').value=c.id;
-    document.getElementById('cm-name').value=c.name||'';
-    document.getElementById('cm-winery').value=c.winery||'';
-    document.getElementById('cm-year').value=c.year||'';
-    document.getElementById('cm-colour').value=c.colour||'White';
-    document.getElementById('cm-bottles').value=c.bottles||0;
-    document.getElementById('cm-price').value=c.price||'';
-    document.getElementById('cm-notes').value=c.notes||'';
-    const knownTags=[...document.querySelectorAll('#cm-food-tags .tag')].map(t=>t.textContent);
-    (c.food||[]).forEach(f=>{
-      const tag=document.querySelector(`#cm-food-tags .tag`);
-      const existing=[...document.querySelectorAll('#cm-food-tags .tag')].find(t=>t.textContent===f);
-      if(existing){existing.classList.add('sel');}
-      else{const t=document.createElement('span');t.className='tag sel';t.dataset.custom='1';t.textContent=f;t.onclick=()=>toggleTag(t);document.getElementById('cm-food-tags').appendChild(t);}
-    });
-  }
-  document.getElementById('cellar-modal').style.display='block';
-}
-
-function closeCellarModal(){ document.getElementById('cellar-modal').style.display='none'; }
-
 function addCellarTag(){
   const inp=document.getElementById('cm-food-custom'), val=inp.value.trim(); if(!val) return;
   const t=document.createElement('span'); t.className='tag sel'; t.dataset.custom='1';
@@ -1357,33 +1200,29 @@ function addCellarTag(){
   document.getElementById('cm-food-tags').appendChild(t); inp.value='';
 }
 
-function saveCellarEntry(){
-  const name=document.getElementById('cm-name').value.trim();
-  if(!name){toast('Please enter a wine name');return;}
-  const id=document.getElementById('cm-id').value;
-  const food=[...document.querySelectorAll('#cm-food-tags .tag.sel')].map(t=>t.textContent);
-  const entry={id:id||('c'+Date.now()), name,
-    winery:document.getElementById('cm-winery').value.trim(),
-    year:document.getElementById('cm-year').value,
-    colour:document.getElementById('cm-colour').value,
-    bottles:parseInt(document.getElementById('cm-bottles').value)||0,
-    price:document.getElementById('cm-price').value,
-    food, notes:document.getElementById('cm-notes').value.trim(),
-    added:new Date().toISOString().slice(0,10)};
-  if(id){const idx=cellar.findIndex(c=>c.id===id);if(idx!==-1){entry.added=cellar[idx].added;cellar[idx]=entry;}}
-  else{cellar.unshift(entry);}
-  saveCellar(); closeCellarModal(); renderCellar(); toast('Cellar saved 🍷');
-}
-
-function updateBottles(id,delta){
-  const c=cellar.find(x=>x.id===id); if(!c) return;
-  c.bottles=Math.max(0,(parseInt(c.bottles)||0)+delta);
-  saveCellar(); renderCellar();
-}
-
-function deleteCellarEntry(id){
-  if(!confirm('Remove this wine from cellar?')) return;
-  cellar=cellar.filter(c=>c.id!==id); saveCellar(); renderCellar();
+function updateBottles(cellarKey, delta){
+  const norm = s => (s||'').trim().toLowerCase();
+  const [w,n,y,col] = cellarKey.split('|||');
+  const matches = tastings.filter(t =>
+    norm(t.winery)===w && norm(t.name)===n &&
+    norm(t.year||'')===y && norm(t.colour||'')===col
+  ).sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
+  if (!matches.length) return;
+  if (delta < 0) {
+    let remaining = Math.abs(delta);
+    for (const t of matches) {
+      const cur = parseInt(t.how_many_left||0);
+      if (cur <= 0) continue;
+      const take = Math.min(cur, remaining);
+      t.how_many_left = String(cur - take);
+      remaining -= take;
+      if (remaining <= 0) break;
+    }
+  } else {
+    const t = matches[0];
+    t.how_many_left = String(Math.max(0, parseInt(t.how_many_left||0) + delta));
+  }
+  saveLocal(); renderCellar();
 }
 
 function toggleCellarFilters(){
@@ -1414,7 +1253,7 @@ function resetCellarFilters(){
 }
 
 function cellarFilterOptions(key){
-  const inStock = cellar.filter(c => (parseInt(c.bottles)||0) > 0);
+  const inStock = cellarFromTastings();
   let values;
   if (key === 'type') values = inStock.map(c => c.colour);
   else if (key === 'winery') values = inStock.map(c => c.winery);
@@ -1461,13 +1300,13 @@ function toggleCellarOverview(){
 }
 
 function renderCellarOverview(){
-  const inStockCellar = cellar.filter(c => (parseInt(c.bottles)||0) > 0);
+  const inStockCellar = cellarFromTastings();
   const byType = {};
   inStockCellar.forEach(c => {
     const t = c.colour || 'Other';
     if (!byType[t]) byType[t] = { wines: 0, bottles: 0 };
     byType[t].wines += 1;
-    byType[t].bottles += (parseInt(c.bottles)||0);
+    byType[t].bottles += c.bottles;
   });
   const typeOrder = Object.entries(byType).sort((a,b) => b[1].bottles - a[1].bottles);
   const colours = {'White':'#3d8bcd','Red':'#c0392b','Rosé':'#e91e8c','Sparkling':'#8e44ad','Eaux-de-vie':'#e67e22','Orange':'#d4ac0d','Sweet':'#1abc9c'};
@@ -1499,8 +1338,7 @@ function toggleCellarOverviewDrill(type){
   if (isOpen) return; // was open, now closed — stop here
   box.style.display = 'block';
 
-  const inStockCellar = cellar.filter(c => (parseInt(c.bottles)||0) > 0 && (c.colour||'Other') === type)
-    .sort((a,b) => (b.bottles||0) - (a.bottles||0));
+  const inStockCellar = cellarFromTastings().filter(c => (c.colour||'Other') === type);
 
   box.innerHTML = inStockCellar.length ? inStockCellar.map(c => `
     <div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0">
@@ -1510,10 +1348,8 @@ function toggleCellarOverviewDrill(type){
 }
 
 function renderCellar(){
-  // Only show wines currently in stock — zero-bottle wines are hidden from this list
-  const inStockCellar=cellar.filter(c=>(parseInt(c.bottles)||0)>0);
-
-  const filtered=inStockCellar.filter(c => {
+  const inStockCellar = cellarFromTastings();
+  const filtered = inStockCellar.filter(c => {
     if (cellarFilters.type!=='all' && c.colour!==cellarFilters.type) return false;
     if (cellarFilters.winery!=='all' && c.winery!==cellarFilters.winery) return false;
     if (cellarFilters.region!=='all' && c.region!==cellarFilters.region) return false;
@@ -1524,16 +1360,17 @@ function renderCellar(){
     if (cellarFilters.yearBought!=='all' && (c.added||'').slice(0,4)!==cellarFilters.yearBought) return false;
     return true;
   });
-
-  const inStock=inStockCellar.length;
-  const totalBottles=inStockCellar.reduce((s,c)=>s+(parseInt(c.bottles)||0),0);
+  const inStock = inStockCellar.length;
+  const totalBottles = inStockCellar.reduce((s,c)=>s+c.bottles,0);
   document.getElementById('cellar-count').textContent=`(${inStock} wines · ${totalBottles} bottles)`;
-  const list=document.getElementById('cellar-list');
+  const list = document.getElementById('cellar-list');
   if(!filtered.length){
-    list.innerHTML=inStockCellar.length?'<p class="empty">No wines match these filters.</p>':'<p class="empty">No bottles currently in stock.<br>Wines with bottles bought are added automatically,<br>or tap + Add wine above.</p>';
+    list.innerHTML = inStockCellar.length
+      ? '<p class="empty">No wines match these filters.</p>'
+      : '<p class="empty">No bottles currently in stock.<br>Log a tasting with bottles bought to add wines here.</p>';
     return;
   }
-  list.innerHTML=filtered.map(c=>`
+  list.innerHTML = filtered.map(c => `
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div style="flex:1;min-width:0">
@@ -1542,16 +1379,14 @@ function renderCellar(){
         </div>
         <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
           <button onclick="updateBottles('${c.id}',-1)" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border2);background:var(--bg2);font-size:18px;line-height:1;cursor:pointer;color:var(--text)">−</button>
-          <span style="font-size:17px;font-weight:600;min-width:22px;text-align:center;color:${c.bottles===0?'var(--text3)':'var(--red)'}">${c.bottles}</span>
+          <span style="font-size:17px;font-weight:600;min-width:22px;text-align:center;color:var(--red)">${c.bottles}</span>
           <button onclick="updateBottles('${c.id}',1)" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border2);background:var(--bg2);font-size:18px;line-height:1;cursor:pointer;color:var(--text)">+</button>
         </div>
       </div>
       ${c.food&&c.food.length?`<div class="pill-row">${c.food.map(f=>`<span class="pill">${f}</span>`).join('')}</div>`:''}
       ${c.notes?`<div class="note-text" style="margin-top:5px"><i class="ti ti-glass" style="font-size:13px;vertical-align:-1px;margin-right:3px" aria-hidden="true"></i>"${c.notes}"</div>`:''}
       <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">
-        <button class="btn-sm" style="padding:4px 8px;font-size:11px" onclick="showPairings('${c.id}')">🍽 Pairings</button>
-        <button class="btn-sm" style="padding:4px 8px;font-size:11px" onclick="openAddCellar('${c.id}')">✏️ Edit</button>
-        <button class="btn-sm danger" style="padding:4px 8px;font-size:11px" onclick="deleteCellarEntry('${c.id}')">Delete</button>
+        <button class="btn-sm" style="padding:4px 8px;font-size:11px" onclick="showPairingsCellar('${c.id}')">🍽 Pairings</button>
       </div>
     </div>`).join('');
   if (cellarOverviewOpen) renderCellarOverview();
@@ -1606,6 +1441,60 @@ async function fetchAIPairings(id){
     el.innerHTML=`<div style="line-height:1.7;font-size:13px;white-space:pre-wrap">${text}</div>
       <p style="font-size:11px;color:var(--text3);margin-top:8px">AI-generated — use your own judgement.</p>`;
   }catch(e){el.innerHTML='<p style="color:var(--text2);font-size:13px">Could not fetch suggestions.</p>';}
+}
+
+// ─── CELLAR PAIRINGS ─────────────────────────────────────────────────────────
+function showPairingsCellar(cellarKey){
+  const norm = s => (s||'').trim().toLowerCase();
+  const [w,n,y,col] = cellarKey.split('|||');
+  const matches = tastings.filter(t =>
+    norm(t.winery)===w && norm(t.name)===n &&
+    norm(t.year||'')===y && norm(t.colour||'')===col
+  ).sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
+  if (!matches.length) return;
+  const c = matches[0];
+  const panel = document.getElementById('pairing-panel');
+  document.getElementById('pairing-panel-title').textContent = c.name + (c.winery?' · '+c.winery:'');
+  const content = document.getElementById('pairing-panel-content');
+  content.innerHTML = '<p style="color:var(--text2)">Loading…</p>';
+  panel.style.display = 'block';
+  let h = '';
+  const allFood = [...new Set(matches.flatMap(t => t.food||[]))];
+  if (allFood.length) {
+    h += `<p style="font-weight:500;font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Saved pairings</p>
+    <div class="pill-row" style="margin-bottom:12px">${allFood.map(f=>`<span class="pill">${f}</span>`).join('')}</div><div class="divider"></div>`;
+  }
+  const allNotes = matches.filter(t=>t.notes).map(t=>`<div class="note-text" style="margin-bottom:6px"><i class="ti ti-glass" style="font-size:12px;margin-right:3px"></i>"${t.notes}"</div>`).join('');
+  if (allNotes) {
+    h += `<p style="font-weight:500;font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">My tasting notes</p>${allNotes}<div class="divider"></div>`;
+  }
+  const grapeInfo = (c.grapes||[]).slice(0,2).join(', ');
+  const safeKey = cellarKey.replace(/'/g,"\\'");
+  const safeColour = (c.colour||'').replace(/'/g,"\\'");
+  const safeName = (c.name||'').replace(/'/g,"\\'");
+  const safeWinery = (c.winery||'').replace(/'/g,"\\'");
+  const safeGrape = grapeInfo.replace(/'/g,"\\'");
+  h += `<p style="font-weight:500;font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">AI pairing suggestions</p>
+    <div id="ai-pairing-result">
+      <button class="btn-sm" onclick="fetchAIPairings2('${safeKey}','${safeColour}','${safeName}','${safeWinery}','${safeGrape}')" style="width:100%;padding:10px;font-size:13px">Get pairing suggestions</button>
+    </div>`;
+  content.innerHTML = h;
+}
+
+async function fetchAIPairings2(cellarKey, colour, name, winery, grapeInfo){
+  const el = document.getElementById('ai-pairing-result');
+  el.innerHTML = '<p style="color:var(--text2);font-size:13px">Asking Claude…</p>';
+  const prompt = `Suggest 5 specific food pairings for a Swiss ${colour} wine called "${name}" from ${winery||'a Swiss winery'}${grapeInfo?', made from '+grapeInfo:''}. Be concise — one line per pairing with a brief reason. End with serving temperature.`;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:500,
+        messages:[{role:'user',content:prompt}]})});
+    const data = await res.json();
+    const text = data.content?.map(b=>b.text||'').join('')||'No response';
+    el.innerHTML = `<div style="line-height:1.7;font-size:13px;white-space:pre-wrap">${text}</div>
+      <p style="font-size:11px;color:var(--text2);margin-top:8px">AI-generated — use your own judgement.</p>`;
+  } catch(e) { el.innerHTML='<p style="color:var(--text2);font-size:13px">Could not fetch suggestions.</p>'; }
 }
 
 // ─── GOOGLE DRIVE (simple OAuth popup, no service account) ──────────────────
