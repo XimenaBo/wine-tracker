@@ -1,4 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" rx="22" fill="#c0392b"/>
-  <text x="50" y="68" font-size="62" text-anchor="middle" font-family="serif">🍷</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 340">
+  <rect width="340" height="340" rx="68" fill="#EAE1D2"/>
+  <path d="M129 74
+    L211 74
+    C217 74 222 78 222 84
+    C222 118 224 142 216 158
+    C209 174 196 184 174 187
+    L174 244
+    C192 245 198 249 198 253
+    C198 259 187 262 170 262
+    C153 262 142 259 142 253
+    C142 249 148 245 166 244
+    L166 187
+    C144 184 131 174 124 158
+    C116 142 118 118 118 84
+    C118 78 123 74 129 74 Z"
+    fill="#D9E7ED" stroke="#AFC3CC" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M122 130
+    C126 144 136 164 150 172
+    C158 177 182 177 190 172
+    C204 164 214 144 218 130
+    C218 130 196 140 170 140
+    C144 140 122 130 122 130 Z"
+    fill="#7E2230"/>
+  <path d="M138 96 C136 114 138 134 148 148" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" opacity="0.6"/>
+  <path d="M252 64 L257 78 L272 78 L260 87 L264 102 L252 93 L240 102 L244 87 L232 78 L247 78 Z" fill="#E0A732"/>
 </svg>
